@@ -68,3 +68,19 @@ test('task ledgers stay bounded and disposed sessions lose ephemeral state', asy
   state = await routes.get('/api/reqtrace.state')({ url: 'http://local/api/reqtrace.state?sessionId=dispose-session', method: 'GET' })
   assert.equal((await state.json()).pending, false)
 })
+
+test('a new task archives the previous checklist instead of reusing it', async () => {
+  const { ctx, listeners, routes } = createHarness()
+  apply(ctx)
+  const event = listeners.get('session/event')
+  const session = { id: 'new-task-session', title: 'New task' }
+  event(session, { type: 'user/message', seq: 1, data: { content: [{ type: 'text', text: 'Implement the first task' }] } })
+  await new Promise((resolve) => setTimeout(resolve, 30))
+  event(session, { type: 'user/message', seq: 2, data: { content: [{ type: 'text', text: 'Implement the second task' }] } })
+  await new Promise((resolve) => setTimeout(resolve, 30))
+  const response = await routes.get('/api/reqtrace.ledger')({ url: 'http://local/api/reqtrace.ledger?sessionId=new-task-session', method: 'GET' })
+  const ledger = (await response.json()).ledger
+  assert.ok(Array.isArray(ledger.history))
+  assert.equal(ledger.history.length, 1)
+  assert.ok(ledger.history[0].requirements.length > 0)
+})

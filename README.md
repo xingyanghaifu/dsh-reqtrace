@@ -46,9 +46,9 @@ Verified in a fresh `DSH_HOME` with DSH `0.2.1-rc.5`:
 node --test --test-isolation=none test/*.test.mjs
 ```
 
-25 tests: evidence collection, prompt building (including checklist order,
+26 tests: evidence collection, prompt building (including checklist order,
 subagent evidence, child checklists and conflict warnings), archived-child
-session-query loading, unescaped-quote JSON repair, JSON report
+session-query loading, new-task archiving, unescaped-quote JSON repair, JSON report
 parsing/formatting, requirement extraction, continuation filtering, command
 registration, sidebar/tab/button registration, pending-task badge, config
 sanitization, strict-mode steering, resume handoff formatting, token usage

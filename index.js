@@ -192,6 +192,33 @@ export function apply(ctx) {
     }
   }
 
+  const beginTask = (session, text, seq) => {
+    const previous = taskLedgers.get(session.id)
+    if (previous === undefined || !Array.isArray(previous.requirements) || previous.requirements.length === 0) return
+    if (typeof previous.seq === 'number' && typeof seq === 'number' && previous.seq === seq) return
+    const history = [...(previous.history ?? []), {
+      requirements: previous.requirements,
+      report: previous.report ?? null,
+      turn: previous.turn ?? null,
+      at: previous.at ?? null,
+      title: previous.title,
+    }].slice(-20)
+    taskLedgers.set(session.id, {
+      requirements: [],
+      request: text.slice(0, 4000),
+      turn: currentTurns.get(session.id) ?? null,
+      seq,
+      at: Date.now(),
+      title: typeof session.title === 'string' ? session.title : undefined,
+      parentSessionId: session.header?.parentSession ?? null,
+      subagent: session.header?.origin === 'subagent',
+      delegationDepth: session.header?.delegationDepth ?? 0,
+      report: null,
+      history,
+    })
+    void persistLedgers()
+  }
+
   const runExtraction = async (session, text, seq) => {
     const key = `${session.id}:${String(seq ?? '')}`
     if (extractionRuns.has(key)) return
@@ -201,8 +228,8 @@ export function apply(ctx) {
       const requirements = extracted.requirements
       if (requirements.length > 0) {
         const previous = taskLedgers.get(session.id)
-        const history = previous === undefined
-          ? []
+        const history = previous === undefined || (previous.requirements?.length ?? 0) === 0
+          ? (previous?.history ?? [])
           : [...(previous.history ?? []), {
             requirements: previous.requirements,
             report: previous.report ?? null,
@@ -271,7 +298,8 @@ export function apply(ctx) {
         const titleFallback = typeof session.title === 'string' ? session.title : ''
         const extractionText = text.length >= 8 ? text : titleFallback
         if (!shouldExtract(extractionText)) return
-        void runExtraction(session, extractionText, event.seq)
+        beginTask(session, extractionText, event.seq)
+        if (config.autoExtract === true) void runExtraction(session, extractionText, event.seq)
         return
       }
       if (event?.type === 'tool/call') {
