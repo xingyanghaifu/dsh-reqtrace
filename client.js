@@ -518,11 +518,11 @@ window.__ModuleLoader__.load({
             width: `${Math.max(220, to.width)}px`,
             height: `${Math.max(30, to.height)}px`,
             boxSizing: 'border-box',
-            background: 'var(--dsw-alias-bg-layer-1)',
-            border: '1px solid var(--dsw-alias-state-business-primary)',
+            background: '#151a21',
+            border: '1px solid #62a8ff',
             borderRadius: '8px',
             padding: '6px 8px',
-            color: 'var(--dsw-alias-label-primary)',
+            color: '#e3e9f2',
             boxShadow: '0 14px 42px rgba(0,0,0,.45), 0 0 14px rgba(98,168,255,.22)',
             zIndex: '9999',
             opacity: '1',
@@ -1070,7 +1070,8 @@ window.__ModuleLoader__.load({
           style.textContent = `
             .reqtrace-children { position: relative; }
             .reqtrace-child-row { position: relative; z-index: 1; }
-            .reqtrace-ghost-card { position: fixed !important; left: 0 !important; top: 0 !important; margin: 0 !important; z-index: 9999; pointer-events: none; border-color: var(--dsw-alias-state-business-primary) !important; background: var(--dsw-alias-bg-layer-1) !important; box-shadow: 0 14px 42px rgba(0,0,0,.45), 0 0 14px rgba(98,168,255,.18); will-change: transform, opacity; }
+            .reqtrace-ghost-card { position: fixed !important; left: 0 !important; top: 0 !important; margin: 0 !important; z-index: 9999; pointer-events: none; border: 1px solid #62a8ff !important; border-radius: 8px !important; background: #151a21 !important; color: #e3e9f2 !important; box-shadow: 0 14px 42px rgba(0,0,0,.55), 0 0 14px rgba(98,168,255,.22); will-change: transform, opacity; }
+            .reqtrace-ghost-card span { color: #dce6f2 !important; }
           `
           doc.head.append(style)
           return () => style.remove()
