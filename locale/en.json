@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Requirement Trace",
+    "description": "Audit a session: map each user requirement to concrete tool evidence and flag missing or out-of-scope work."
+  }
+}

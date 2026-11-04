@@ -1,0 +1,8 @@
+- insert:
+    - id: reqtrace
+      name: dsh-reqtrace
+      config:
+        autoAudit: false
+        autoExtract: false
+        strict: false
+        minToolCalls: 2
