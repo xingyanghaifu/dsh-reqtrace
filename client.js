@@ -403,7 +403,6 @@ window.__ModuleLoader__.load({
       const [globalHistory, setGlobalHistory] = React.useState([])
       const [children, setChildren] = React.useState([])
       const [showChildren, setShowChildren] = React.useState(true)
-      const [trail, setTrail] = React.useState([])
       const [showHistory, setShowHistory] = React.useState(false)
       const [notice, setNotice] = React.useState('')
       const [editing, setEditing] = React.useState(false)
@@ -416,6 +415,8 @@ window.__ModuleLoader__.load({
       const lastPendingTurn = React.useRef(null)
       const childBoxRef = React.useRef(null)
       const childRowRefs = React.useRef(new Map())
+      const previousChildren = React.useRef(new Set())
+      const ghostCards = React.useRef([])
 
       const run = React.useCallback(async (force = false) => {
         if (sessionId === undefined || sessionId === '') {
@@ -485,41 +486,93 @@ window.__ModuleLoader__.load({
       }, [sessionId, run])
 
       React.useEffect(() => {
-        if (!showChildren || children.length === 0) {
-          setTrail([])
-          return undefined
-        }
         const box = childBoxRef.current
-        if (box === null) {
-          setTrail([])
-          return undefined
+        const current = new Set(children.map((child) => child.sessionId))
+        const fresh = children.filter((child) => !previousChildren.current.has(child.sessionId))
+        previousChildren.current = current
+        if (!showChildren || box === null || fresh.length === 0) return undefined
+        const reduced = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true
+        let cancelled = false
+
+        const flash = (row) => {
+          if (typeof row.animate !== 'function') return
+          row.animate([
+            { boxShadow: '0 0 0 0 rgba(98,168,255,.65)' },
+            { boxShadow: '0 0 0 8px rgba(98,168,255,0)' },
+          ], { duration: 500, easing: 'ease-out' })
         }
-        const measure = () => {
-          if (childBoxRef.current !== box) return
-          const base = box.getBoundingClientRect()
-          const next = []
-          for (const child of children) {
-            const row = childRowRefs.current.get(child.sessionId)
-            if (row === undefined) continue
-            const rect = row.getBoundingClientRect()
-            const startY = 28
-            const endY = rect.top - base.top + rect.height / 2
-            const midY = startY + (endY - startY) * 0.5
-            next.push({
-              key: `${child.sessionId}:${child.report?.verdict ?? ''}:${Math.round(endY)}`,
-              d: `M 20 ${startY} C 12 ${midY}, 12 ${midY}, 20 ${endY}`,
-            })
+
+        const launch = (child, frame) => {
+          const row = childRowRefs.current.get(child.sessionId)
+          if (row === undefined) return
+          if (reduced) {
+            flash(row)
+            return
           }
-          setTrail(next)
+          const from = box.getBoundingClientRect()
+          const to = row.getBoundingClientRect()
+          const ghost = row.cloneNode(true)
+          ghost.classList.add('reqtrace-ghost-card')
+          ghost.style.width = `${to.width}px`
+          ghost.style.height = `${to.height}px`
+          ghost.style.transform = `translate(${from.left + 10}px, ${from.top + 28}px)`
+          document.body.append(ghost)
+          ghostCards.current.push(ghost)
+          const c1 = {
+            x: from.left + 10 + (to.left - from.left - 10) * 0.28 - (to.top - from.top) * 0.1,
+            y: from.top + 28 + (to.top - from.top - 28) * 0.28 + (to.left - from.left) * 0.1,
+          }
+          const c2 = {
+            x: from.left + 10 + (to.left - from.left - 10) * 0.72 - (to.top - from.top) * 0.1,
+            y: from.top + 28 + (to.top - from.top - 28) * 0.72 + (to.left - from.left) * 0.1,
+          }
+          const startedAt = performance.now()
+          const duration = 900
+          const tick = (now) => {
+            if (cancelled) {
+              ghost.remove()
+              return
+            }
+            const t = Math.min(1, (now - startedAt) / duration)
+            const e = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2
+            const q = 1 - e
+            const x = q ** 3 * (from.left + 10) + 3 * q ** 2 * e * c1.x + 3 * q * e ** 2 * c2.x + e ** 3 * to.left
+            const y = q ** 3 * (from.top + 28) + 3 * q ** 2 * e * c1.y + 3 * q * e ** 2 * c2.y + e ** 3 * to.top
+            ghost.style.transform = `translate(${x}px, ${y}px) scale(${0.96 + 0.04 * e})`
+            ghost.style.opacity = String(1 - Math.max(0, (t - 0.82) / 0.18))
+            if (t < 1) {
+              globalThis.requestAnimationFrame(tick)
+            } else {
+              ghost.remove()
+              ghostCards.current = ghostCards.current.filter((item) => item !== ghost)
+              flash(row)
+            }
+          }
+          globalThis.requestAnimationFrame(tick)
         }
-        const raf = typeof globalThis.requestAnimationFrame === 'function'
-          ? globalThis.requestAnimationFrame(measure)
-          : globalThis.setTimeout(measure, 0)
+
+        const timers = []
+        const raf = globalThis.requestAnimationFrame(() => {
+          if (cancelled) return
+          fresh.slice(0, 3).forEach((child, index) => {
+            timers.push(globalThis.setTimeout(() => {
+              if (!cancelled) launch(child, box)
+            }, index * 90))
+          })
+        })
         return () => {
+          cancelled = true
           if (typeof globalThis.cancelAnimationFrame === 'function') globalThis.cancelAnimationFrame(raf)
-          else globalThis.clearTimeout(raf)
+          for (const timer of timers) globalThis.clearTimeout(timer)
+          for (const ghost of ghostCards.current) ghost.remove()
+          ghostCards.current = []
         }
       }, [children, showChildren])
+
+      React.useEffect(() => () => {
+        for (const ghost of ghostCards.current) ghost.remove()
+        ghostCards.current = []
+      }, [])
 
       const copyReport = async () => {
         const text = typeof report === 'string' ? report : JSON.stringify(report, null, 2)
@@ -689,13 +742,6 @@ window.__ModuleLoader__.load({
           style: { ...button, alignSelf: 'flex-start', padding: '1px 6px', fontSize: '10px', lineHeight: '15px' },
           onClick: () => setShowChildren((value) => !value),
         }, `${t('panel.children')} (${children.length})`),
-        trail.length > 0 && showChildren ? h('svg', { className: 'reqtrace-trail', 'aria-hidden': true },
-          ...trail.map((path, index) => [
-            h('path', { key: path.key, className: 'reqtrace-trail-path', d: path.d }),
-            h('circle', { key: `dot-${path.key}`, className: 'reqtrace-trail-dot', r: 2.4 },
-              h('animateMotion', { dur: '1.2s', begin: `${index * 120}ms`, fill: 'freeze', path: path.d })),
-          ]),
-        ) : null,
         ...(showChildren ? children.map((child, index) => h('div', {
           key: `child-${child.sessionId ?? index}`,
           ref: (element) => {
@@ -999,12 +1045,8 @@ window.__ModuleLoader__.load({
           style.dataset.reqtraceTrail = ''
           style.textContent = `
             .reqtrace-children { position: relative; }
-            .reqtrace-trail { position: absolute; left: 0; top: 0; width: 64px; height: 100%; pointer-events: none; overflow: visible; z-index: 0; }
-            .reqtrace-trail-path { fill: none; stroke: var(--dsw-alias-state-business-primary); stroke-width: 1.2; stroke-linecap: round; stroke-dasharray: 4 7; opacity: .65; animation: reqtrace-trail 1.4s ease-out both; }
-            .reqtrace-trail-dot { fill: var(--dsw-alias-state-business-primary); filter: drop-shadow(0 0 3px var(--dsw-alias-state-business-primary)); }
             .reqtrace-child-row { position: relative; z-index: 1; }
-            @keyframes reqtrace-trail { from { stroke-dashoffset: 70; opacity: 0; } 30% { opacity: .8; } to { stroke-dashoffset: 0; opacity: .65; } }
-            @media (prefers-reduced-motion: reduce) { .reqtrace-trail-path { animation: none; stroke-dasharray: none; opacity: .35; } .reqtrace-trail-dot { display: none; } }
+            .reqtrace-ghost-card { position: fixed !important; left: 0 !important; top: 0 !important; margin: 0 !important; z-index: 9999; pointer-events: none; border-color: var(--dsw-alias-state-business-primary) !important; background: var(--dsw-alias-bg-layer-1) !important; box-shadow: 0 14px 42px rgba(0,0,0,.45), 0 0 14px rgba(98,168,255,.18); will-change: transform, opacity; }
           `
           doc.head.append(style)
           return () => style.remove()
