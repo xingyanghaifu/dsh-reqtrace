@@ -403,6 +403,7 @@ window.__ModuleLoader__.load({
       const [globalHistory, setGlobalHistory] = React.useState([])
       const [children, setChildren] = React.useState([])
       const [showChildren, setShowChildren] = React.useState(true)
+      const [flightRequest, setFlightRequest] = React.useState(0)
       const [showHistory, setShowHistory] = React.useState(false)
       const [notice, setNotice] = React.useState('')
       const [editing, setEditing] = React.useState(false)
@@ -567,7 +568,7 @@ window.__ModuleLoader__.load({
           for (const ghost of ghostCards.current) ghost.remove()
           ghostCards.current = []
         }
-      }, [children, showChildren])
+      }, [children, showChildren, flightRequest])
 
       React.useEffect(() => () => {
         for (const ghost of ghostCards.current) ghost.remove()
@@ -737,11 +738,23 @@ window.__ModuleLoader__.load({
           className: 'reqtrace-children',
           style: { display: 'flex', flexDirection: 'column', gap: '5px', padding: '7px 9px', borderRadius: '9px', background: 'var(--dsw-alias-bg-layer-2)' },
         },
-        h('button', {
-          type: 'button',
-          style: { ...button, alignSelf: 'flex-start', padding: '1px 6px', fontSize: '10px', lineHeight: '15px' },
-          onClick: () => setShowChildren((value) => !value),
-        }, `${t('panel.children')} (${children.length})`),
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: '5px' } },
+          h('button', {
+            type: 'button',
+            style: { ...button, padding: '1px 6px', fontSize: '10px', lineHeight: '15px' },
+            onClick: () => setShowChildren((value) => !value),
+          }, `${t('panel.children')} (${children.length})`),
+          showChildren ? h('button', {
+            type: 'button',
+            title: '重播卡片飞行',
+            'aria-label': '重播卡片飞行',
+            style: { ...button, flex: 'none', padding: '1px 5px', fontSize: '10px', lineHeight: '15px' },
+            onClick: () => {
+              previousChildren.current = new Set()
+              setFlightRequest((value) => value + 1)
+            },
+          }, '▶') : null,
+        ),
         ...(showChildren ? children.map((child, index) => h('div', {
           key: `child-${child.sessionId ?? index}`,
           ref: (element) => {
