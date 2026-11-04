@@ -690,7 +690,11 @@ window.__ModuleLoader__.load({
           onClick: () => setShowChildren((value) => !value),
         }, `${t('panel.children')} (${children.length})`),
         trail.length > 0 && showChildren ? h('svg', { className: 'reqtrace-trail', 'aria-hidden': true },
-          ...trail.map((path) => h('path', { key: path.key, className: 'reqtrace-trail-path', d: path.d })),
+          ...trail.map((path, index) => [
+            h('path', { key: path.key, className: 'reqtrace-trail-path', d: path.d }),
+            h('circle', { key: `dot-${path.key}`, className: 'reqtrace-trail-dot', r: 2.4 },
+              h('animateMotion', { dur: '1.2s', begin: `${index * 120}ms`, fill: 'freeze', path: path.d })),
+          ]),
         ) : null,
         ...(showChildren ? children.map((child, index) => h('div', {
           key: `child-${child.sessionId ?? index}`,
@@ -997,10 +1001,10 @@ window.__ModuleLoader__.load({
             .reqtrace-children { position: relative; }
             .reqtrace-trail { position: absolute; left: 0; top: 0; width: 64px; height: 100%; pointer-events: none; overflow: visible; z-index: 0; }
             .reqtrace-trail-path { fill: none; stroke: var(--dsw-alias-state-business-primary); stroke-width: 1.2; stroke-linecap: round; stroke-dasharray: 4 7; opacity: .65; animation: reqtrace-trail 1.4s ease-out both; }
-            .reqtrace-trail-dot { fill: var(--dsw-alias-state-business-primary); opacity: .8; }
+            .reqtrace-trail-dot { fill: var(--dsw-alias-state-business-primary); filter: drop-shadow(0 0 3px var(--dsw-alias-state-business-primary)); }
             .reqtrace-child-row { position: relative; z-index: 1; }
             @keyframes reqtrace-trail { from { stroke-dashoffset: 70; opacity: 0; } 30% { opacity: .8; } to { stroke-dashoffset: 0; opacity: .65; } }
-            @media (prefers-reduced-motion: reduce) { .reqtrace-trail-path { animation: none; stroke-dasharray: none; opacity: .35; } }
+            @media (prefers-reduced-motion: reduce) { .reqtrace-trail-path { animation: none; stroke-dasharray: none; opacity: .35; } .reqtrace-trail-dot { display: none; } }
           `
           doc.head.append(style)
           return () => style.remove()
