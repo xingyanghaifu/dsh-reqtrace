@@ -514,9 +514,20 @@ window.__ModuleLoader__.load({
           const to = row.getBoundingClientRect()
           const ghost = row.cloneNode(true)
           ghost.classList.add('reqtrace-ghost-card')
-          ghost.style.width = `${to.width}px`
-          ghost.style.height = `${to.height}px`
-          ghost.style.transform = `translate(${from.left + 10}px, ${from.top + 28}px)`
+          Object.assign(ghost.style, {
+            width: `${Math.max(220, to.width)}px`,
+            height: `${Math.max(30, to.height)}px`,
+            boxSizing: 'border-box',
+            background: 'var(--dsw-alias-bg-layer-1)',
+            border: '1px solid var(--dsw-alias-state-business-primary)',
+            borderRadius: '8px',
+            padding: '6px 8px',
+            color: 'var(--dsw-alias-label-primary)',
+            boxShadow: '0 14px 42px rgba(0,0,0,.45), 0 0 14px rgba(98,168,255,.22)',
+            zIndex: '9999',
+            opacity: '1',
+            transform: `translate(${from.left + 10}px, ${from.top + 28}px)`,
+          })
           document.body.append(ghost)
           ghostCards.current.push(ghost)
           const c1 = {
