@@ -512,31 +512,40 @@ window.__ModuleLoader__.load({
           }
           const from = box.getBoundingClientRect()
           const to = row.getBoundingClientRect()
+          const ghostWidth = Math.min(240, Math.max(180, to.width))
+          const startX = from.left + 10
+          const startY = from.top + 28
+          const endX = to.left + Math.max(0, (to.width - ghostWidth) / 2)
+          const endY = to.top
           const ghost = row.cloneNode(true)
           ghost.classList.add('reqtrace-ghost-card')
           Object.assign(ghost.style, {
-            width: `${Math.max(220, to.width)}px`,
-            height: `${Math.max(30, to.height)}px`,
+            width: `${ghostWidth}px`,
+            height: '40px',
+            overflow: 'hidden',
+            whiteSpace: 'nowrap',
             boxSizing: 'border-box',
             background: '#151a21',
             border: '1px solid #62a8ff',
             borderRadius: '8px',
-            padding: '6px 8px',
+            padding: '6px 10px',
             color: '#e3e9f2',
             boxShadow: '0 14px 42px rgba(0,0,0,.45), 0 0 14px rgba(98,168,255,.22)',
             zIndex: '9999',
             opacity: '1',
-            transform: `translate(${from.left + 10}px, ${from.top + 28}px)`,
+            transform: `translate(${startX}px, ${startY}px)`,
           })
           document.body.append(ghost)
           ghostCards.current.push(ghost)
+          const dx = endX - startX
+          const dy = endY - startY
           const c1 = {
-            x: from.left + 10 + (to.left - from.left - 10) * 0.28 - (to.top - from.top) * 0.1,
-            y: from.top + 28 + (to.top - from.top - 28) * 0.28 + (to.left - from.left) * 0.1,
+            x: startX + dx * 0.28 - dy * 0.1,
+            y: startY + dy * 0.28 + dx * 0.1,
           }
           const c2 = {
-            x: from.left + 10 + (to.left - from.left - 10) * 0.72 - (to.top - from.top) * 0.1,
-            y: from.top + 28 + (to.top - from.top - 28) * 0.72 + (to.left - from.left) * 0.1,
+            x: startX + dx * 0.72 - dy * 0.1,
+            y: startY + dy * 0.72 + dx * 0.1,
           }
           const startedAt = performance.now()
           const duration = 900
@@ -548,8 +557,8 @@ window.__ModuleLoader__.load({
             const t = Math.min(1, (now - startedAt) / duration)
             const e = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2
             const q = 1 - e
-            const x = q ** 3 * (from.left + 10) + 3 * q ** 2 * e * c1.x + 3 * q * e ** 2 * c2.x + e ** 3 * to.left
-            const y = q ** 3 * (from.top + 28) + 3 * q ** 2 * e * c1.y + 3 * q * e ** 2 * c2.y + e ** 3 * to.top
+            const x = q ** 3 * startX + 3 * q ** 2 * e * c1.x + 3 * q * e ** 2 * c2.x + e ** 3 * endX
+            const y = q ** 3 * startY + 3 * q ** 2 * e * c1.y + 3 * q * e ** 2 * c2.y + e ** 3 * endY
             ghost.style.transform = `translate(${x}px, ${y}px) scale(${0.96 + 0.04 * e})`
             ghost.style.opacity = String(1 - Math.max(0, (t - 0.82) / 0.18))
             if (t < 1) {
