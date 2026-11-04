@@ -17,6 +17,14 @@ changes the session.
 
 ## Install
 
+From GitHub:
+
+```bash
+dsh plugin --profile desktop add github:xingyanghaifu/dsh-reqtrace
+```
+
+From a local checkout:
+
 ```bash
 dsh plugin --profile web add E:\dshwork\dsh-reqtrace
 ```

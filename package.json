@@ -13,6 +13,14 @@
     "subagent"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xingyanghaifu/dsh-reqtrace.git"
+  },
+  "bugs": {
+    "url": "https://github.com/xingyanghaifu/dsh-reqtrace/issues"
+  },
+  "homepage": "https://github.com/xingyanghaifu/dsh-reqtrace#readme",
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
