@@ -464,6 +464,19 @@ export function apply(ctx) {
           parentSessionId: ledger.parentSessionId ?? sessionId,
           delegationDepth: ledger.delegationDepth ?? 0,
         }))
+        const known = new Set(children.map((child) => child.sessionId))
+        for (const child of ctx.get('sessions')?.list?.() ?? []) {
+          if (child?.header?.parentSession !== sessionId || known.has(child.id)) continue
+          children.push({
+            sessionId: child.id,
+            title: child.title,
+            requirements: [],
+            report: null,
+            at: null,
+            parentSessionId: sessionId,
+            delegationDepth: child.header?.delegationDepth ?? 0,
+          })
+        }
         return Response.json({ ok: true, children }, { headers: { 'cache-control': 'no-store' } })
       },
     })
