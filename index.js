@@ -268,8 +268,10 @@ export function apply(ctx) {
       if (event?.type === 'user/message') {
         if (config.autoExtract !== true || (event.surfaceOp !== undefined && event.surfaceOp !== 'append')) return
         const text = blocksText(event.data?.content)
-        if (!shouldExtract(text)) return
-        void runExtraction(session, text, event.seq)
+        const titleFallback = typeof session.title === 'string' ? session.title : ''
+        const extractionText = text.length >= 8 ? text : titleFallback
+        if (!shouldExtract(extractionText)) return
+        void runExtraction(session, extractionText, event.seq)
         return
       }
       if (event?.type === 'tool/call') {
@@ -490,8 +492,8 @@ export function apply(ctx) {
     commandCtx.commands.register({
       definitionId: 'dsh-reqtrace',
       name: 'reqtrace',
-      description: 'Audit the current session, resume a historical checklist, or clear saved data',
-      input: { hint: '[可选：额外关注点 | history | resume <序号> | clear]' },
+      description: 'Audit a session, resume a historical checklist, or clear saved data',
+      input: { hint: '[可选：额外关注点 | audit <session-id> | history | resume <序号> | clear]' },
       handler: async (invocation) => {
         const input = invocation.rawInput.trim()
         if (input === 'history' || input === '历史') {
@@ -512,6 +514,18 @@ export function apply(ctx) {
             source: { kind: 'user' },
           })
           return { kind: 'success', text: `已把历史任务“${ledger.title ?? ledger.sessionId}”的清单带入当前会话。` }
+        }
+        if (input.startsWith('audit ') || input.startsWith('审计 ')) {
+          const targetId = input.replace(/^(audit|审计)\s+/, '').trim()
+          const target = ctx.get('sessions')?.get?.(targetId)
+          if (target === undefined) return { kind: 'error', text: `找不到会话：${targetId}` }
+          const report = await auditSession(ctx, target, invocation.signal, {
+            requirements: taskLedgers.get(targetId)?.requirements ?? [],
+            childLedgers: childLedgersFor(target),
+          })
+          if (typeof report === 'string') return { kind: 'error', text: report }
+          rememberReport(targetId, report)
+          return { kind: 'success', text: formatReport(report) }
         }
         if (input === 'clear all' || input === '清除全部') {
           taskLedgers.clear()

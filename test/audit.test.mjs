@@ -38,10 +38,12 @@ test('parseReport repairs unescaped quotes inside string values', () => {
 })
 
 test('parseReport accepts the compact JSON contract', () => {
-  const report = parseReport('{"verdict":"1 done, 1 missing","next":[{"action":"Verify old API","why":"field was deleted"}],"missing":[{"requirement":"Keep old API","why":"no edit"}],"partial":[],"done":[{"requirement":"Export CSV","evidence":"src/export.ts"}],"extra":["extra auth change"]}')
+  const report = parseReport('{"verdict":"1 done, 1 missing","next":[{"action":"Verify old API","why":"field was deleted"}],"missing":[{"requirement":"Keep old API","why":"no edit","tools":["read"],"files":["src/routes.ts"]}],"partial":[],"done":[{"requirement":"Export CSV","evidence":"src/export.ts","tools":["write"],"files":["src/export.ts"]}],"extra":["extra auth change"]}')
   assert.equal(report.verdict, '1 done, 1 missing')
   assert.equal(report.next[0].action, 'Verify old API')
   assert.equal(report.missing[0].requirement, 'Keep old API')
+  assert.deepEqual(report.missing[0].tools, ['read'])
+  assert.deepEqual(report.done[0].files, ['src/export.ts'])
   assert.equal(report.done[0].evidence, 'src/export.ts')
   assert.deepEqual(report.extra, ['extra auth change'])
 })

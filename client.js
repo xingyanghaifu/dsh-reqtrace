@@ -243,13 +243,15 @@ window.__ModuleLoader__.load({
         ),
         ...items.map((item, index) => {
           const view = render(item)
+          const hasTools = Array.isArray(item.tools) && item.tools.length > 0
+          const hasFiles = Array.isArray(item.files) && item.files.length > 0
           return h('div', {
             key: `${title}-${index}`,
             style: {
               display: 'flex',
               flexDirection: 'column',
-              gap: '2px',
-              padding: '6px 8px',
+              gap: '4px',
+              padding: '8px 10px',
               borderRadius: '8px',
               background: 'var(--dsw-alias-bg-layer-2)',
               minWidth: 0,
@@ -268,7 +270,41 @@ window.__ModuleLoader__.load({
               onClick: () => onOpen(item),
             }, t('panel.openSession')),
           ),
-          view.detail === '' ? null : h('span', { style: { fontSize: '11px', lineHeight: '17px', color: 'var(--dsw-alias-label-tertiary)', overflowWrap: 'anywhere' } }, view.detail),
+          view.detail === '' ? null : h('div', { style: { fontSize: '11px', lineHeight: '17px', color: 'var(--dsw-alias-label-tertiary)', overflowWrap: 'anywhere' } }, view.detail),
+          hasTools ? h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' } },
+            h('span', { style: { fontSize: '10px', color: 'var(--dsw-alias-label-quaternary)' } }, '🔧'),
+            ...item.tools.slice(0, 8).map((tool, ti) => 
+              h('span', {
+                key: `tool-${ti}`,
+                style: {
+                  fontSize: '10px',
+                  lineHeight: '15px',
+                  padding: '1px 4px',
+                  borderRadius: '4px',
+                  background: 'var(--dsw-alias-bg-layer-3)',
+                  color: 'var(--dsw-alias-label-tertiary)',
+                  fontFamily: 'var(--ds-font-family-code)',
+                },
+              }, tool)
+            ),
+            item.tools.length > 8 ? h('span', { style: { fontSize: '10px', color: 'var(--dsw-alias-label-quaternary)' } }, `+${item.tools.length - 8}`) : null,
+          ) : null,
+          hasFiles ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: '2px' } },
+            ...item.files.slice(0, 5).map((file, fi) => 
+              h('div', {
+                key: `file-${fi}`,
+                style: {
+                  fontSize: '10px',
+                  lineHeight: '16px',
+                  color: 'var(--dsw-alias-label-tertiary)',
+                  fontFamily: 'var(--ds-font-family-code)',
+                  paddingLeft: '14px',
+                  overflowWrap: 'anywhere',
+                },
+              }, `📄 ${file}`)
+            ),
+            item.files.length > 5 ? h('div', { style: { fontSize: '10px', color: 'var(--dsw-alias-label-quaternary)', paddingLeft: '14px' } }, `... 还有 ${item.files.length - 5} 个文件`) : null,
+          ) : null,
           )
         }),
       )

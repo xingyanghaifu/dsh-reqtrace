@@ -246,19 +246,24 @@ Rules:
 2. Find concrete evidence in tool calls/results, file paths, commands or test output. A claim in the final answer without tool evidence is not proof.
 3. If a CHECKLIST is present, use its items as the source of truth and keep that order; do not add other requirements.
 4. Put each requirement in exactly one bucket: done, partial, missing, extra.
-5. "done" and "partial" items need short evidence (max 120 chars). "missing" needs a short reason.
+5. For each requirement, include:
+   - evidence/missing/why: short description (max 120 chars)
+   - tools: array of tool names used (e.g. ["read", "write", "test"])
+   - files: array of mentioned file paths (e.g. ["src/x.ts", "test/y.test.ts"]), max 5 most relevant
 6. Keep every string short; this is for a human to scan, not a full report.
 7. Add up to 3 "next" actions telling the human what to check or fix first, highest priority first.
-8. Answer in the same language as the user's request.
+8. IMPORTANT: If the user's request or the agent's final answer contains Chinese text, or if no explicit user request is found, answer in Chinese (简体中文). Otherwise, answer in the same language as the user's request.
 
 Examples:
 - Request: "Add CSV export"; evidence: write export.ts and test export.test.ts.
-  Result: {"verdict":"1 done, 0 partial, 0 missing, 0 extra","next":[],"missing":[],"partial":[],"done":[{"requirement":"Add CSV export","evidence":"export.ts + export.test.ts"}],"extra":[]}
-- Request: "Fix the bug and add tests"; evidence: edit bug.ts only.
-  Result: {"verdict":"0 done, 1 partial, 1 missing, 0 extra","next":[{"action":"Add tests","why":"no test file or test command was found"}],"missing":[{"requirement":"Add tests","why":"no test evidence"}],"partial":[{"requirement":"Fix the bug","missing":"change exists but no verification"}],"done":[],"extra":[]}
+  Result: {"verdict":"1 done, 0 partial, 0 missing, 0 extra","next":[],"missing":[],"partial":[],"done":[{"requirement":"Add CSV export","evidence":"export.ts + export.test.ts","tools":["write"],"files":["export.ts","export.test.ts"]}],"extra":[]}
+- Request: "修复bug并添加测试"; evidence: edit bug.ts only.
+  Result: {"verdict":"0 done, 1 partial, 1 missing, 0 extra","next":[{"action":"添加测试","why":"没有找到测试文件或测试命令"}],"missing":[{"requirement":"添加测试","why":"没有测试证据","tools":[],"files":[]}],"partial":[{"requirement":"修复bug","missing":"有修改但没有验证","tools":["edit"],"files":["bug.ts"]}],"done":[],"extra":[]}
+- Request: (no explicit request found); evidence: read 15 files, run 25 tests.
+  Result: {"verdict":"0 done, 0 partial, 1 missing, 0 extra","next":[{"action":"明确任务目标","why":"只提供了运行环境上下文，没有具体任务"}],"missing":[{"requirement":"完成具体任务或回答问题","why":"用户只发送了运行环境快照，没有明确请求","tools":["read","pwsh","glob"],"files":["index.js","audit.js","package.json"]}],"partial":[],"done":[],"extra":[]}
 
 Return ONLY JSON, no markdown fences:
-{"verdict":"1 done, 1 partial, 1 missing, 0 extra","next":[{"action":"...","why":"..."}],"missing":[{"requirement":"...","why":"..."}],"partial":[{"requirement":"...","missing":"..."}],"done":[{"requirement":"...","evidence":"..."}],"extra":["..."]}`
+{"verdict":"1 done, 1 partial, 1 missing, 0 extra","next":[{"action":"...","why":"..."}],"missing":[{"requirement":"...","why":"...","tools":[...],"files":[...]}],"partial":[{"requirement":"...","missing":"...","tools":[...],"files":[...]}],"done":[{"requirement":"...","evidence":"...","tools":[...],"files":[...]}],"extra":["..."]}`
 
 function stringList(value) {
   return Array.isArray(value) ? value.filter((item) => typeof item === 'string' && item.trim() !== '').map((item) => item.trim()) : []
@@ -268,7 +273,10 @@ function objectList(value, fields) {
   if (!Array.isArray(value)) return []
   return value
     .filter((item) => item !== null && typeof item === 'object' && !Array.isArray(item))
-    .map((item) => Object.fromEntries(fields.map((field) => [field, typeof item[field] === 'string' ? item[field].trim() : ''])))
+    .map((item) => Object.fromEntries(fields.map((field) => {
+      if (Array.isArray(item[field])) return [field, stringList(item[field]).slice(0, 8)]
+      return [field, typeof item[field] === 'string' ? item[field].trim() : '']
+    })))
     .filter((item) => item[fields[0]] !== '')
 }
 
@@ -329,9 +337,9 @@ export function parseReport(text) {
     return {
       verdict: typeof data.verdict === 'string' ? data.verdict.trim() : '',
       next: objectList(data.next, ['action', 'why']),
-      missing: objectList(data.missing, ['requirement', 'why']),
-      partial: objectList(data.partial, ['requirement', 'missing']),
-      done: objectList(data.done, ['requirement', 'evidence']),
+      missing: objectList(data.missing, ['requirement', 'why', 'tools', 'files']),
+      partial: objectList(data.partial, ['requirement', 'missing', 'tools', 'files']),
+      done: objectList(data.done, ['requirement', 'evidence', 'tools', 'files']),
       extra: stringList(data.extra),
     }
   } catch {
