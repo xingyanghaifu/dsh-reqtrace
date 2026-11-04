@@ -403,6 +403,7 @@ window.__ModuleLoader__.load({
       const [globalHistory, setGlobalHistory] = React.useState([])
       const [children, setChildren] = React.useState([])
       const [showChildren, setShowChildren] = React.useState(true)
+      const [trail, setTrail] = React.useState([])
       const [showHistory, setShowHistory] = React.useState(false)
       const [notice, setNotice] = React.useState('')
       const [editing, setEditing] = React.useState(false)
@@ -413,6 +414,8 @@ window.__ModuleLoader__.load({
       const [error, setError] = React.useState('')
       const busyRef = React.useRef(false)
       const lastPendingTurn = React.useRef(null)
+      const childBoxRef = React.useRef(null)
+      const childRowRefs = React.useRef(new Map())
 
       const run = React.useCallback(async (force = false) => {
         if (sessionId === undefined || sessionId === '') {
@@ -480,6 +483,43 @@ window.__ModuleLoader__.load({
         }, 4000)
         return () => { live = false; clearInterval(timer) }
       }, [sessionId, run])
+
+      React.useEffect(() => {
+        if (!showChildren || children.length === 0) {
+          setTrail([])
+          return undefined
+        }
+        const box = childBoxRef.current
+        if (box === null) {
+          setTrail([])
+          return undefined
+        }
+        const measure = () => {
+          if (childBoxRef.current !== box) return
+          const base = box.getBoundingClientRect()
+          const next = []
+          for (const child of children) {
+            const row = childRowRefs.current.get(child.sessionId)
+            if (row === undefined) continue
+            const rect = row.getBoundingClientRect()
+            const startY = 28
+            const endY = rect.top - base.top + rect.height / 2
+            const midY = startY + (endY - startY) * 0.5
+            next.push({
+              key: `${child.sessionId}:${child.report?.verdict ?? ''}:${Math.round(endY)}`,
+              d: `M 20 ${startY} C 12 ${midY}, 12 ${midY}, 20 ${endY}`,
+            })
+          }
+          setTrail(next)
+        }
+        const raf = typeof globalThis.requestAnimationFrame === 'function'
+          ? globalThis.requestAnimationFrame(measure)
+          : globalThis.setTimeout(measure, 0)
+        return () => {
+          if (typeof globalThis.cancelAnimationFrame === 'function') globalThis.cancelAnimationFrame(raf)
+          else globalThis.clearTimeout(raf)
+        }
+      }, [children, showChildren])
 
       const copyReport = async () => {
         const text = typeof report === 'string' ? report : JSON.stringify(report, null, 2)
@@ -640,6 +680,8 @@ window.__ModuleLoader__.load({
             })),
         ) : null,
         children.length > 0 ? h('div', {
+          ref: childBoxRef,
+          className: 'reqtrace-children',
           style: { display: 'flex', flexDirection: 'column', gap: '5px', padding: '7px 9px', borderRadius: '9px', background: 'var(--dsw-alias-bg-layer-2)' },
         },
         h('button', {
@@ -647,9 +689,17 @@ window.__ModuleLoader__.load({
           style: { ...button, alignSelf: 'flex-start', padding: '1px 6px', fontSize: '10px', lineHeight: '15px' },
           onClick: () => setShowChildren((value) => !value),
         }, `${t('panel.children')} (${children.length})`),
+        trail.length > 0 && showChildren ? h('svg', { className: 'reqtrace-trail', 'aria-hidden': true },
+          ...trail.map((path) => h('path', { key: path.key, className: 'reqtrace-trail-path', d: path.d })),
+        ) : null,
         ...(showChildren ? children.map((child, index) => h('div', {
-          key: `child-${index}`,
-          style: { display: 'flex', alignItems: 'center', gap: '6px', paddingLeft: `${Math.max(0, Number(child.delegationDepth ?? 1) - 1) * 10}px` },
+          key: `child-${child.sessionId ?? index}`,
+          ref: (element) => {
+            if (element === null) childRowRefs.current.delete(child.sessionId)
+            else childRowRefs.current.set(child.sessionId, element)
+          },
+          className: 'reqtrace-child-row',
+          style: { display: 'flex', alignItems: 'center', gap: '6px', paddingLeft: `${28 + Math.max(0, Number(child.delegationDepth ?? 1) - 1) * 10}px` },
         },
         h('span', { style: { flex: 1, minWidth: 0, fontSize: '11px', lineHeight: '17px', color: 'var(--dsw-alias-label-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `${child.delegationDepth > 1 ? '↳ ' : ''}${child.title ?? child.sessionId} · ${(child.requirements ?? []).length} 条${child.report?.verdict === undefined ? '' : ` · ${child.report.verdict}`}`),
         typeof openSession === 'function' ? h('button', {
@@ -938,6 +988,23 @@ window.__ModuleLoader__.load({
       apply(ctx) {
         const t = ctx.locale.bind(NS)
         ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'reqtrace: dictionaries')
+        ctx.effect(() => {
+          const doc = globalThis.document
+          if (doc?.head === undefined) return undefined
+          const style = doc.createElement('style')
+          style.dataset.reqtraceTrail = ''
+          style.textContent = `
+            .reqtrace-children { position: relative; }
+            .reqtrace-trail { position: absolute; left: 0; top: 0; width: 64px; height: 100%; pointer-events: none; overflow: visible; z-index: 0; }
+            .reqtrace-trail-path { fill: none; stroke: var(--dsw-alias-state-business-primary); stroke-width: 1.2; stroke-linecap: round; stroke-dasharray: 4 7; opacity: .65; animation: reqtrace-trail 1.4s ease-out both; }
+            .reqtrace-trail-dot { fill: var(--dsw-alias-state-business-primary); opacity: .8; }
+            .reqtrace-child-row { position: relative; z-index: 1; }
+            @keyframes reqtrace-trail { from { stroke-dashoffset: 70; opacity: 0; } 30% { opacity: .8; } to { stroke-dashoffset: 0; opacity: .65; } }
+            @media (prefers-reduced-motion: reduce) { .reqtrace-trail-path { animation: none; stroke-dasharray: none; opacity: .35; } }
+          `
+          doc.head.append(style)
+          return () => style.remove()
+        }, 'reqtrace: trail styles')
         ctx.slots.inject('settings.section', () => ctx.slots.register({
           name: 'settings.section',
           id: 'reqtrace',

@@ -97,6 +97,8 @@ conversation as a new “continue this task” instruction. The sidebar’s
   task status and can open the child session when the workspace service exposes
   it. Child ledgers are marked with `↳` in history. Strict mode is root-session
   only.
+- The children section draws a lightweight animated SVG handoff trail; it is
+  disabled automatically under `prefers-reduced-motion`.
 - While the panel is open it checks for a newly finished task every 4 seconds;
   checklist rows show ✓ / ! / × once the matching report is available.
 - Missing/partial report items can be hidden with the per-item “忽略” button.

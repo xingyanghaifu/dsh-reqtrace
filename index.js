@@ -9,7 +9,7 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
-import { auditSession, blocksText, extractRequirements, formatReport, parseReport, shouldExtract } from './audit.js'
+import { auditSession, blocksText, extractRequirements, formatReport, parseReport, readEvents, shouldExtract } from './audit.js'
 import { DEFAULT_CONFIG, readConfig, writeConfig } from './config.js'
 
 export const name = 'reqtrace'
@@ -219,6 +219,23 @@ export function apply(ctx) {
     void persistLedgers()
   }
 
+  const currentTaskFor = (session) => {
+    const ledger = taskLedgers.get(session.id)
+    if (ledger === undefined) return undefined
+    try {
+      const events = readEvents(session)
+      const latestUser = [...events].reverse().find((event) => event?.type === 'user/message' && (event.surfaceOp === undefined || event.surfaceOp === 'append'))
+      const text = blocksText(latestUser?.data?.content)
+      if (latestUser !== undefined && (typeof ledger.seq !== 'number' || latestUser.seq > ledger.seq) && shouldExtract(text)) {
+        beginTask(session, text, latestUser.seq)
+        return taskLedgers.get(session.id)
+      }
+    } catch {
+      // Fall back to the stored ledger if the session log is unavailable.
+    }
+    return ledger
+  }
+
   const runExtraction = async (session, text, seq) => {
     const key = `${session.id}:${String(seq ?? '')}`
     if (extractionRuns.has(key)) return
@@ -269,7 +286,7 @@ export function apply(ctx) {
     try {
       const report = await auditSession(ctx, session, new AbortController().signal, {
         turn,
-        requirements: taskLedgers.get(session.id)?.requirements ?? [],
+        requirements: currentTaskFor(session)?.requirements ?? [],
         childLedgers: childLedgersFor(session),
       })
       if (typeof report !== 'string') rememberReport(session.id, report)
@@ -346,7 +363,7 @@ export function apply(ctx) {
       if (session.header?.origin === 'subagent' || session.header?.parentSession !== undefined) return
       const report = await auditSession(ctx, session, new AbortController().signal, {
         turn,
-        requirements: taskLedgers.get(session.id)?.requirements ?? [],
+        requirements: currentTaskFor(session)?.requirements ?? [],
         childLedgers: childLedgersFor(session),
       })
       if (typeof report !== 'string') rememberReport(session.id, report)
@@ -387,7 +404,9 @@ export function apply(ctx) {
       fetch: async (request) => {
         const sessionId = new URL(request.url).searchParams.get('sessionId') ?? ''
         if (request.method === 'GET') {
-          return Response.json({ ok: true, ledger: taskLedgers.get(sessionId) ?? null }, { headers: { 'cache-control': 'no-store' } })
+          const session = sctx.sessions.get(sessionId)
+          const ledger = session === undefined ? (taskLedgers.get(sessionId) ?? null) : (currentTaskFor(session) ?? null)
+          return Response.json({ ok: true, ledger }, { headers: { 'cache-control': 'no-store' } })
         }
         if (request.method === 'DELETE') {
           const at = new URL(request.url).searchParams.get('at')
@@ -500,7 +519,7 @@ export function apply(ctx) {
         try {
           const report = await auditSession(ctx, session, request.signal, {
             force,
-            requirements: taskLedgers.get(sessionId)?.requirements ?? [],
+            requirements: currentTaskFor(session)?.requirements ?? [],
             childLedgers: childLedgersFor(session),
           })
           if (typeof report === 'string') {
@@ -573,7 +592,7 @@ export function apply(ctx) {
         }
         try {
           const report = await auditSession(ctx, session, invocation.signal, {
-            requirements: taskLedgers.get(session.id)?.requirements ?? [],
+            requirements: currentTaskFor(session)?.requirements ?? [],
             childLedgers: childLedgersFor(session),
           })
           if (typeof report === 'string') return { kind: 'error', text: report }
