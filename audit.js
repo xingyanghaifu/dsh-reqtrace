@@ -110,6 +110,8 @@ export function collectEvidence(events) {
   for (const event of events ?? []) {
     if (event === null || typeof event !== 'object') continue
     if (event.type === 'user/message') {
+      const sourceKind = event.data?.source?.kind
+      if (sourceKind !== undefined && sourceKind !== 'user') continue
       const text = blocksText(event.data?.content)
       if (text !== '') requests.push(truncate(text, MAX_MESSAGE_CHARS))
       continue
@@ -161,6 +163,22 @@ export function collectEvidence(events) {
     evidence,
     finalAnswer: finalAnswers.at(-1) ?? '',
   }
+}
+
+function enrichReportEvidence(report, collected) {
+  const calls = collected.evidence.filter((item) => item.kind === 'call' && item.target !== '')
+  for (const bucket of ['next', 'done', 'partial', 'missing']) {
+    for (const item of Array.isArray(report[bucket]) ? report[bucket] : []) {
+      const tools = Array.isArray(item?.tools) ? item.tools : []
+      const commands = calls
+        .filter((call) => tools.includes(call.name))
+        .map((call) => call.target)
+        .filter((value, index, list) => value !== '' && list.indexOf(value) === index)
+        .slice(0, 8)
+      if (commands.length > 0) item.commands = commands
+    }
+  }
+  return report
 }
 
 function evidenceEntries(collected) {
@@ -573,6 +591,7 @@ export async function auditSession(ctx, session, signal, options = {}) {
     if (chunk.type === 'usage') usage = chunk.usage
   }
   const report = parseReport(text)
+  enrichReportEvidence(report, collected)
   if (usage !== null) report.usage = usage
   if (conflicts.length > 0) report.conflicts = conflicts
   rememberAudit(key, report)

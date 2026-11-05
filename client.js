@@ -441,6 +441,12 @@ window.__ModuleLoader__.load({
             ),
             entry.tools.length > 8 ? h('span', { style: { fontSize: '11px', color: 'var(--dsw-alias-label-quaternary)' } }, `+${entry.tools.length - 8}`) : null,
           ) : null,
+          Array.isArray(entry.commands) && entry.commands.length > 0 ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: '2px' } },
+            ...entry.commands.slice(0, 8).map((command, ci) => h('div', {
+              key: `command-${ci}`,
+              style: { fontSize: '11px', lineHeight: '17px', color: 'var(--dsw-alias-label-secondary)', fontFamily: 'var(--ds-font-family-code)', overflowWrap: 'anywhere' },
+            }, `$ ${textOf(command)}`)),
+          ) : null,
           hasFiles ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: '3px' } },
             ...entry.files.slice(0, 5).map((file, fi) => 
               h('div', {
@@ -861,6 +867,7 @@ window.__ModuleLoader__.load({
               const titleText = textOf(entry.requirement ?? entry.action ?? entry.text ?? item)
               lines.push(`- **${titleText}**${detailOf(entry) ? ` — ${textOf(detailOf(entry))}` : ''}`)
               if (entry.tools?.length) lines.push(`  - 工具：${entry.tools.map(textOf).join(', ')}`)
+              if (entry.commands?.length) lines.push(`  - 命令：${entry.commands.map(textOf).join(' · ')}`)
               if (entry.files?.length) lines.push(`  - 文件：${entry.files.map(textOf).join(', ')}`)
             }
           }
