@@ -71,6 +71,14 @@ test('collectEvidence separates requests, tool calls and final answer', () => {
   assert.equal(result.finalAnswer, 'Implemented CSV export.')
 })
 
+test('parseReport repairs a report truncated inside a files array', () => {
+  const raw = '{"verdict":"1 missing","next":[],"missing":[{"requirement":"a","why":"b"}],"partial":[{"requirement":"c","missing":"d","files":["E:\\\\dshwork\\\\file.md"'
+  const report = parseReport(raw)
+  assert.equal(report.raw, undefined)
+  assert.equal(report.missing[0].requirement, 'a')
+  assert.equal(report.partial[0].files[0], 'E:\\dshwork\\file.md')
+})
+
 test('parseReport repairs unescaped Windows paths', () => {
   const raw = '{"verdict":"1 missing","next":[],"missing":[{"requirement":"Check file","why":"E:\\dshwork\\dsh-ponytail\\index.js"}],"partial":[],"done":[],"extra":[]}'
   const report = parseReport(raw)

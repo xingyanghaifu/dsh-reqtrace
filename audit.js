@@ -404,11 +404,42 @@ function repairInvalidEscapes(text) {
   return out
 }
 
+/** Close a JSON object that the model stopped mid-array or mid-string. */
+function repairTruncatedJson(text) {
+  let source = text.trim().replace(/,\s*$/, '')
+  let inString = false
+  let escaped = false
+  const stack = []
+  for (const char of source) {
+    if (inString) {
+      if (escaped) {
+        escaped = false
+      } else if (char === '\\') {
+        escaped = true
+      } else if (char === '"') {
+        inString = false
+      }
+      continue
+    }
+    if (char === '"') inString = true
+    else if (char === '{' || char === '[') stack.push(char)
+    else if (char === '}' || char === ']') stack.pop()
+  }
+  if (inString) source += '"'
+  for (let index = stack.length - 1; index >= 0; index -= 1) {
+    source += stack[index] === '{' ? '}' : ']'
+  }
+  return source
+}
+
 function parseJsonObject(text) {
+  const repairedQuotes = repairUnescapedQuotes(text)
+  const repairedEscapes = repairInvalidEscapes(repairedQuotes)
   const candidates = [
     text,
-    repairUnescapedQuotes(text),
-    repairInvalidEscapes(repairUnescapedQuotes(text)),
+    repairedQuotes,
+    repairedEscapes,
+    repairTruncatedJson(repairedEscapes),
   ]
   for (const candidate of candidates) {
     try {
@@ -650,7 +681,7 @@ export async function auditSession(ctx, session, signal, options = {}) {
   const call = await llm.prepareCall({
     provider: selected.provider,
     model: selected.model,
-    maxTokens: 1200,
+    maxTokens: 2500,
   }, signal)
   const messages = [{ role: 'user', content: [{ type: 'text', text: prompt }] }]
   let text = ''
