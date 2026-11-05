@@ -548,6 +548,7 @@ window.__ModuleLoader__.load({
       const [draft, setDraft] = React.useState([])
       const [busy, setBusy] = React.useState(true)
       const [extracting, setExtracting] = React.useState(false)
+      const [showActions, setShowActions] = React.useState(false)
       const [copied, setCopied] = React.useState(false)
       const [exported, setExported] = React.useState(false)
       const [error, setError] = React.useState('')
@@ -903,30 +904,43 @@ window.__ModuleLoader__.load({
             h('span', { style: { fontSize: '12px', lineHeight: '18px', color: 'var(--dsw-alias-label-tertiary)' } }, t('panel.description')),
           ),
           h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', flex: 'none', alignSelf: 'center' } },
-            report !== null ? h('button', {
-              style: { ...button, flex: 'none', height: '28px', minHeight: '28px', padding: '4px 10px', fontSize: '12px', lineHeight: '18px' },
-              onMouseEnter: (e) => {
-                e.currentTarget.style.background = 'var(--dsw-alias-bg-layer-2)'
-                e.currentTarget.style.transform = 'translateY(-1px)'
+            report !== null ? h('div', { style: { position: 'relative', flex: 'none' } },
+              h('button', {
+                type: 'button',
+                title: '更多操作',
+                'aria-label': '更多操作',
+                style: { ...button, width: '28px', minWidth: '28px', height: '28px', minHeight: '28px', padding: 0, fontSize: '14px', lineHeight: '16px' },
+                onClick: () => setShowActions((value) => !value),
+              }, '⋯'),
+              showActions ? h('div', {
+                style: {
+                  position: 'absolute',
+                  right: 0,
+                  top: '32px',
+                  zIndex: 20,
+                  minWidth: '110px',
+                  padding: '4px',
+                  borderRadius: '8px',
+                  border: '.5px solid var(--dsw-alias-border-l2)',
+                  background: 'var(--dsw-alias-bg-layer-1)',
+                  boxShadow: '0 8px 24px rgba(0,0,0,.18)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '2px',
+                },
               },
-              onMouseLeave: (e) => {
-                e.currentTarget.style.background = 'var(--dsw-alias-bg-layer-1)'
-                e.currentTarget.style.transform = 'translateY(0)'
-              },
-              onClick: () => void copyReport(),
-            }, copied ? t('panel.copied') : t('panel.copy')) : null,
-            report !== null ? h('button', {
-              style: { ...button, flex: 'none', height: '28px', minHeight: '28px', padding: '4px 10px', fontSize: '12px', lineHeight: '18px' },
-              onMouseEnter: (e) => {
-                e.currentTarget.style.background = 'var(--dsw-alias-bg-layer-2)'
-                e.currentTarget.style.transform = 'translateY(-1px)'
-              },
-              onMouseLeave: (e) => {
-                e.currentTarget.style.background = 'var(--dsw-alias-bg-layer-1)'
-                e.currentTarget.style.transform = 'translateY(0)'
-              },
-              onClick: () => void exportReport(),
-            }, exported ? t('panel.exported') : t('panel.export')) : null,
+              h('button', {
+                type: 'button',
+                style: { ...button, border: 'none', background: 'transparent', textAlign: 'left', padding: '5px 8px', fontSize: '12px' },
+                onClick: () => { setShowActions(false); void copyReport() },
+              }, copied ? t('panel.copied') : t('panel.copy')),
+              h('button', {
+                type: 'button',
+                style: { ...button, border: 'none', background: 'transparent', textAlign: 'left', padding: '5px 8px', fontSize: '12px' },
+                onClick: () => { setShowActions(false); void exportReport() },
+              }, exported ? t('panel.exported') : t('panel.export')),
+              ) : null,
+            ) : null,
             h('button', {
               style: { 
                 ...button, 
