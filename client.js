@@ -440,7 +440,7 @@ window.__ModuleLoader__.load({
           render: (item) => ({ title: typeof item === 'string' ? item : item.text, detail: '' }),
           onOpen: openSession,
         }),
-        total === 0 && (report.extra?.length ?? 0) === 0 ? h('div', { style: { color: 'var(--dsw-alias-label-tertiary)', fontSize: '12px' } }, t('panel.empty')) : null,
+        done.length + partial.length + missing.length === 0 && extra.length === 0 ? h('div', { style: { color: 'var(--dsw-alias-label-tertiary)', fontSize: '12px' } }, t('panel.empty')) : null,
       )
     }
 
