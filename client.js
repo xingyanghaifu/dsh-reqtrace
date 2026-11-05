@@ -62,6 +62,11 @@ window.__ModuleLoader__.load({
       'panel.openSession': '打开',
       'panel.next': '先看这几条',
       'panel.summary': '结论',
+      'panel.fix': '让 Agent 补齐',
+      'panel.fixing': '补齐中…',
+      'panel.fixSent': '已发送补齐指令',
+      'panel.extract': '提取验收清单',
+      'panel.extracting': '提取中…',
       'panel.noUsage': '模型未返回 token 用量',
       'panel.pendingTitle': '有新的任务待检查',
       'panel.ledger': '本次任务清单',
@@ -120,6 +125,11 @@ window.__ModuleLoader__.load({
       'panel.openSession': 'Open',
       'panel.next': 'Check these first',
       'panel.summary': 'Verdict',
+      'panel.fix': 'Ask Agent to finish',
+      'panel.fixing': 'Sending…',
+      'panel.fixSent': 'Fix request sent',
+      'panel.extract': 'Extract checklist',
+      'panel.extracting': 'Extracting…',
       'panel.noUsage': 'Model did not report token usage',
       'panel.pendingTitle': 'A new task is ready for audit',
       'panel.ledger': 'Task checklist',
@@ -166,21 +176,22 @@ window.__ModuleLoader__.load({
 
     const card = {
       border: '.5px solid var(--dsw-alias-border-l2)',
-      borderRadius: '12px',
+      borderRadius: '16px',
       background: 'var(--dsw-alias-bg-layer-1)',
       color: 'var(--dsw-alias-label-primary)',
-      padding: '14px',
+      padding: '20px',
       display: 'flex',
       flexDirection: 'column',
-      gap: '12px',
+      gap: '16px',
       boxSizing: 'border-box',
       height: '100%',
       minHeight: 0,
+      boxShadow: '0 1px 3px rgba(0,0,0,.02)',
     }
     const header = {
       display: 'flex',
       alignItems: 'flex-start',
-      gap: '10px',
+      gap: '14px',
       flexWrap: 'wrap',
     }
     const button = {
@@ -188,25 +199,28 @@ window.__ModuleLoader__.load({
       borderRadius: '8px',
       background: 'var(--dsw-alias-bg-layer-1)',
       color: 'var(--dsw-alias-label-primary)',
-      padding: '4px 10px',
+      padding: '5px 12px',
       fontSize: '12px',
       lineHeight: '18px',
       cursor: 'pointer',
+      transition: 'all 0.15s ease',
+      fontWeight: 500,
     }
     const reportStyle = {
       whiteSpace: 'pre-wrap',
       overflowWrap: 'anywhere',
       fontFamily: 'var(--ds-font-family-code)',
       fontSize: '12px',
-      lineHeight: '1.55',
+      lineHeight: '1.6',
       margin: 0,
-      padding: '10px 12px',
-      borderRadius: '9px',
+      padding: '14px 16px',
+      borderRadius: '10px',
       background: 'var(--dsw-alias-bg-layer-2)',
       color: 'var(--dsw-alias-label-secondary)',
       overflow: 'auto',
       flex: '1',
       minHeight: 0,
+      boxShadow: 'inset 0 1px 2px rgba(0,0,0,.03)',
     }
 
     async function api(path, options = {}) {
@@ -280,10 +294,10 @@ window.__ModuleLoader__.load({
     function ReportSection({ t, title, color, items, render, onIgnore, onOpen }) {
       const list = asList(items)
       if (list.length === 0) return null
-      return h('div', { style: { display: 'flex', flexDirection: 'column', gap: '5px' } },
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
-          h('span', { style: { width: '7px', height: '7px', borderRadius: '50%', background: color, flex: 'none' } }),
-          h('strong', { style: { fontSize: '12px', lineHeight: '18px', color: 'var(--dsw-alias-label-primary)' } }, `${title} (${list.length})`),
+      return h('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } },
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' } },
+          h('span', { style: { width: '8px', height: '8px', borderRadius: '50%', background: color, flex: 'none', boxShadow: `0 0 4px ${color}40` } }),
+          h('strong', { style: { fontSize: '13px', lineHeight: '20px', color: 'var(--dsw-alias-label-primary)', fontWeight: 600 } }, `${title} (${list.length})`),
         ),
         ...list.map((item, index) => {
           const entry = item !== null && typeof item === 'object' ? item : {}
@@ -295,73 +309,130 @@ window.__ModuleLoader__.load({
             style: {
               display: 'flex',
               flexDirection: 'column',
-              gap: '4px',
-              padding: '8px 10px',
-              borderRadius: '8px',
+              gap: '6px',
+              padding: '12px 14px',
+              borderRadius: '10px',
               background: 'var(--dsw-alias-bg-layer-2)',
               minWidth: 0,
+              border: '.5px solid transparent',
+              transition: 'all 0.2s ease',
+            },
+            onMouseEnter: (e) => {
+              e.currentTarget.style.borderColor = 'var(--dsw-alias-border-l2)'
+              e.currentTarget.style.background = 'color-mix(in srgb, var(--dsw-alias-bg-layer-2) 95%, var(--dsw-alias-state-business-primary) 5%)'
+            },
+            onMouseLeave: (e) => {
+              e.currentTarget.style.borderColor = 'transparent'
+              e.currentTarget.style.background = 'var(--dsw-alias-bg-layer-2)'
             },
           },
-          h('div', { style: { display: 'flex', alignItems: 'flex-start', gap: '8px' } },
-            h('span', { style: { flex: 1, fontSize: '12px', lineHeight: '18px', color: 'var(--dsw-alias-label-primary)', overflowWrap: 'anywhere' } }, view.title),
+          h('div', { style: { display: 'flex', alignItems: 'flex-start', gap: '10px' } },
+            h('span', { style: { flex: 1, fontSize: '13px', lineHeight: '20px', color: 'var(--dsw-alias-label-primary)', overflowWrap: 'anywhere', fontWeight: 500 } }, view.title),
             onIgnore === undefined ? null : h('button', {
               type: 'button',
-              style: { ...button, flex: 'none', padding: '1px 5px', fontSize: '10px', lineHeight: '15px' },
+              style: { 
+                ...button, 
+                flex: 'none', 
+                padding: '2px 8px', 
+                fontSize: '11px', 
+                lineHeight: '16px',
+                background: 'transparent',
+                color: 'var(--dsw-alias-label-tertiary)',
+              },
+              onMouseEnter: (e) => {
+                e.currentTarget.style.background = 'var(--dsw-alias-bg-layer-3)'
+                e.currentTarget.style.color = 'var(--dsw-alias-label-primary)'
+              },
+              onMouseLeave: (e) => {
+                e.currentTarget.style.background = 'transparent'
+                e.currentTarget.style.color = 'var(--dsw-alias-label-tertiary)'
+              },
               onClick: () => onIgnore(view.title),
             }, t('panel.ignore')),
             onOpen === undefined || entry.sessions?.length === undefined || entry.sessions.length === 0 ? null : h('button', {
               type: 'button',
-              style: { ...button, flex: 'none', padding: '1px 5px', fontSize: '10px', lineHeight: '15px' },
+              style: { 
+                ...button, 
+                flex: 'none', 
+                padding: '2px 8px', 
+                fontSize: '11px', 
+                lineHeight: '16px',
+                background: 'var(--dsw-alias-state-business-primary)',
+                color: 'white',
+                borderColor: 'var(--dsw-alias-state-business-primary)',
+              },
+              onMouseEnter: (e) => {
+                e.currentTarget.style.background = 'color-mix(in srgb, var(--dsw-alias-state-business-primary) 85%, black 15%)'
+              },
+              onMouseLeave: (e) => {
+                e.currentTarget.style.background = 'var(--dsw-alias-state-business-primary)'
+              },
               onClick: () => onOpen(entry),
             }, t('panel.openSession')),
           ),
-          view.detail === '' ? null : h('div', { style: { fontSize: '11px', lineHeight: '17px', color: 'var(--dsw-alias-label-tertiary)', overflowWrap: 'anywhere' } }, view.detail),
-          hasTools ? h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' } },
-            h('span', { style: { fontSize: '10px', color: 'var(--dsw-alias-label-quaternary)' } }, '🔧'),
+          view.detail === '' ? null : h('div', { style: { fontSize: '12px', lineHeight: '18px', color: 'var(--dsw-alias-label-tertiary)', overflowWrap: 'anywhere' } }, view.detail),
+          hasTools ? h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' } },
+            h('span', { style: { fontSize: '11px', color: 'var(--dsw-alias-label-quaternary)' } }, '🔧'),
             ...entry.tools.slice(0, 8).map((tool, ti) => 
               h('span', {
                 key: `tool-${ti}`,
                 style: {
-                  fontSize: '10px',
-                  lineHeight: '15px',
-                  padding: '1px 4px',
-                  borderRadius: '4px',
+                  fontSize: '11px',
+                  lineHeight: '17px',
+                  padding: '2px 6px',
+                  borderRadius: '5px',
                   background: 'var(--dsw-alias-bg-layer-3)',
-                  color: 'var(--dsw-alias-label-tertiary)',
+                  color: 'var(--dsw-alias-label-secondary)',
                   fontFamily: 'var(--ds-font-family-code)',
+                  border: '.5px solid var(--dsw-alias-border-l2)',
                 },
               }, tool)
             ),
-            entry.tools.length > 8 ? h('span', { style: { fontSize: '10px', color: 'var(--dsw-alias-label-quaternary)' } }, `+${entry.tools.length - 8}`) : null,
+            entry.tools.length > 8 ? h('span', { style: { fontSize: '11px', color: 'var(--dsw-alias-label-quaternary)' } }, `+${entry.tools.length - 8}`) : null,
           ) : null,
-          hasFiles ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: '2px' } },
+          hasFiles ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: '3px' } },
             ...entry.files.slice(0, 5).map((file, fi) => 
               h('div', {
                 key: `file-${fi}`,
                 style: {
-                  fontSize: '10px',
-                  lineHeight: '16px',
+                  fontSize: '11px',
+                  lineHeight: '18px',
                   color: 'var(--dsw-alias-label-tertiary)',
                   fontFamily: 'var(--ds-font-family-code)',
-                  paddingLeft: '14px',
+                  paddingLeft: '18px',
                   overflowWrap: 'anywhere',
                 },
               }, `📄 ${file}`)
             ),
-            entry.files.length > 5 ? h('div', { style: { fontSize: '10px', color: 'var(--dsw-alias-label-quaternary)', paddingLeft: '14px' } }, `... 还有 ${entry.files.length - 5} 个文件`) : null,
+            entry.files.length > 5 ? h('div', { style: { fontSize: '11px', color: 'var(--dsw-alias-label-quaternary)', paddingLeft: '18px' } }, `... 还有 ${entry.files.length - 5} 个文件`) : null,
           ) : null,
           )
         }),
       )
     }
 
-    function ReportView({ t, report, openSession }) {
+    function ReportView({ t, report, openSession, onFix }) {
       const [ignored, setIgnored] = React.useState(() => new Set())
+      const [fixing, setFixing] = React.useState(false)
+      const [fixNotice, setFixNotice] = React.useState('')
       const ignore = (value) => setIgnored((current) => {
         const next = new Set(current)
         next.add(value)
         return next
       })
+      const runFix = async () => {
+        if (typeof onFix !== 'function' || fixing) return
+        setFixing(true)
+        setFixNotice('')
+        try {
+          await onFix()
+          setFixNotice(t('panel.fixSent'))
+        } catch {
+          setFixNotice('')
+        } finally {
+          setFixing(false)
+        }
+      }
       if (report === null || report === undefined) {
         return h('div', { style: { color: 'var(--dsw-alias-label-tertiary)', fontSize: '12px' } }, t('panel.empty'))
       }
@@ -376,24 +447,42 @@ window.__ModuleLoader__.load({
       const done = asList(report.done)
       const extra = asList(report.extra)
       const counts = `${done.length} ${t('panel.done')} · ${partial.length} ${t('panel.partial')} · ${missing.length} ${t('panel.missing')} · ${extra.length} ${t('panel.extra')}`
-      return h('div', { style: { display: 'flex', flexDirection: 'column', gap: '12px', overflow: 'auto', flex: 1, minHeight: 0 } },
+      return h('div', { style: { display: 'flex', flexDirection: 'column', gap: '14px', overflow: 'auto', flex: 1, minHeight: 0 } },
         h('div', {
           style: {
             display: 'flex',
             alignItems: 'baseline',
-            gap: '8px',
+            gap: '10px',
             flexWrap: 'wrap',
-            padding: '7px 9px',
-            borderRadius: '9px',
+            padding: '12px 14px',
+            borderRadius: '10px',
             background: 'var(--dsw-alias-bg-layer-2)',
+            boxShadow: 'inset 0 1px 2px rgba(0,0,0,.02)',
           },
         },
-        h('span', { style: { fontSize: '11px', color: 'var(--dsw-alias-label-tertiary)' } }, t('panel.summary')),
-        h('div', { style: { display: 'flex', flexDirection: 'column', gap: '1px', flex: 1, minWidth: 0 } },
-          h('strong', { style: { fontSize: '13px', color: 'var(--dsw-alias-label-primary)' } }, counts),
-          typeof report.verdict === 'string' && report.verdict !== '' ? h('span', { style: { fontSize: '10px', color: 'var(--dsw-alias-label-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, report.verdict) : null,
+        h('span', { style: { fontSize: '11px', color: 'var(--dsw-alias-label-tertiary)', fontWeight: 600 } }, t('panel.summary')),
+        h('div', { style: { display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minWidth: 0 } },
+          h('strong', { style: { fontSize: '14px', color: 'var(--dsw-alias-label-primary)', fontWeight: 600 } }, counts),
+          typeof report.verdict === 'string' && report.verdict !== '' ? h('span', { style: { fontSize: '11px', color: 'var(--dsw-alias-label-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, report.verdict) : null,
         ),
-        h('span', { style: { fontSize: '10px', color: 'var(--dsw-alias-label-tertiary)' } }, formatUsage(report.usage) === '' ? t('panel.noUsage') : formatUsage(report.usage)),
+        h('span', { style: { fontSize: '11px', color: 'var(--dsw-alias-label-tertiary)' } }, formatUsage(report.usage) === '' ? t('panel.noUsage') : formatUsage(report.usage)),
+        missing.length + partial.length > 0 && typeof onFix === 'function' ? h('button', {
+          type: 'button',
+          disabled: fixing,
+          style: {
+            ...button,
+            flex: 'none',
+            padding: '4px 10px',
+            fontSize: '11px',
+            lineHeight: '16px',
+            background: fixing ? 'var(--dsw-alias-bg-layer-3)' : 'var(--dsw-alias-state-business-primary)',
+            color: fixing ? 'var(--dsw-alias-label-secondary)' : 'white',
+            borderColor: fixing ? 'var(--dsw-alias-border-l2)' : 'var(--dsw-alias-state-business-primary)',
+            fontWeight: 600,
+          },
+          onClick: () => void runFix(),
+        }, fixing ? t('panel.fixing') : t('panel.fix')) : null,
+        fixNotice !== '' ? h('span', { style: { fontSize: '11px', color: 'var(--dsw-alias-state-success-primary)' } }, fixNotice) : null,
         ),
         h(ReportSection, {
           t,
@@ -444,7 +533,7 @@ window.__ModuleLoader__.load({
       )
     }
 
-    function AuditPanel({ sessionId, t, resume, openSession }) {
+    function AuditPanel({ sessionId, t, resume, fix, extract, openSession }) {
       const [report, setReport] = React.useState(null)
       const [ledger, setLedger] = React.useState([])
       const [ledgerAt, setLedgerAt] = React.useState(null)
@@ -458,6 +547,7 @@ window.__ModuleLoader__.load({
       const [editing, setEditing] = React.useState(false)
       const [draft, setDraft] = React.useState([])
       const [busy, setBusy] = React.useState(true)
+      const [extracting, setExtracting] = React.useState(false)
       const [copied, setCopied] = React.useState(false)
       const [exported, setExported] = React.useState(false)
       const [error, setError] = React.useState('')
@@ -763,6 +853,21 @@ window.__ModuleLoader__.load({
         }
       }
 
+      const extractLedger = async () => {
+        if (extracting || typeof extract !== 'function') return
+        setExtracting(true)
+        setError('')
+        try {
+          const result = await extract()
+          if (result?.ok === false) setError(result.text ?? t('panel.failed'))
+          else await run(true)
+        } catch (failure) {
+          setError(`${t('panel.failed')}: ${failure?.message ?? failure}`)
+        } finally {
+          setExtracting(false)
+        }
+      }
+
       const saveLedger = async () => {
         try {
           const result = await api(`/api/reqtrace.ledger?sessionId=${encodeURIComponent(sessionId)}`, {
@@ -782,53 +887,136 @@ window.__ModuleLoader__.load({
         h('div', { style: header },
           h('div', {
             style: {
-              width: '30px',
-              height: '30px',
-              borderRadius: '9px',
+              width: '36px',
+              height: '36px',
+              borderRadius: '10px',
               display: 'grid',
               placeItems: 'center',
               flex: 'none',
               color: 'var(--dsw-alias-state-business-primary)',
               background: 'color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent)',
+              boxShadow: '0 2px 4px rgba(0,0,0,.04)',
             },
-          }, h(Icon)),
-          h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' } },
-            h('strong', { style: { fontSize: '15px', lineHeight: '22px' } }, t('panel.title')),
-            h('span', { style: { fontSize: '11px', lineHeight: '17px', color: 'var(--dsw-alias-label-tertiary)' } }, t('panel.description')),
+          }, h(Icon, { size: 20 })),
+          h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '3px' } },
+            h('strong', { style: { fontSize: '16px', lineHeight: '24px', fontWeight: 600 } }, t('panel.title')),
+            h('span', { style: { fontSize: '12px', lineHeight: '18px', color: 'var(--dsw-alias-label-tertiary)' } }, t('panel.description')),
           ),
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', flex: 'none', alignSelf: 'center' } },
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', flex: 'none', alignSelf: 'center' } },
             h('button', {
               type: 'button',
               title: '预览喜鹊飞行',
               'aria-label': '预览喜鹊飞行',
-              style: { ...button, flex: 'none', width: '24px', minWidth: '24px', height: '24px', minHeight: '24px', padding: 0, fontSize: '10px', lineHeight: '16px' },
+              style: { 
+                ...button, 
+                flex: 'none', 
+                width: '28px', 
+                minWidth: '28px', 
+                height: '28px', 
+                minHeight: '28px', 
+                padding: 0, 
+                fontSize: '12px', 
+                lineHeight: '16px',
+                background: 'var(--dsw-alias-bg-layer-2)',
+              },
+              onMouseEnter: (e) => {
+                e.currentTarget.style.background = 'var(--dsw-alias-state-business-primary)'
+                e.currentTarget.style.color = 'white'
+                e.currentTarget.style.transform = 'scale(1.05)'
+              },
+              onMouseLeave: (e) => {
+                e.currentTarget.style.background = 'var(--dsw-alias-bg-layer-2)'
+                e.currentTarget.style.color = 'var(--dsw-alias-label-primary)'
+                e.currentTarget.style.transform = 'scale(1)'
+              },
               onClick: playDemoFlight,
             }, '▶'),
             report !== null ? h('button', {
-              style: { ...button, flex: 'none', height: '24px', minHeight: '24px', padding: '2px 8px', fontSize: '11px', lineHeight: '16px' },
+              style: { ...button, flex: 'none', height: '28px', minHeight: '28px', padding: '4px 10px', fontSize: '12px', lineHeight: '18px' },
+              onMouseEnter: (e) => {
+                e.currentTarget.style.background = 'var(--dsw-alias-bg-layer-2)'
+                e.currentTarget.style.transform = 'translateY(-1px)'
+              },
+              onMouseLeave: (e) => {
+                e.currentTarget.style.background = 'var(--dsw-alias-bg-layer-1)'
+                e.currentTarget.style.transform = 'translateY(0)'
+              },
               onClick: () => void copyReport(),
             }, copied ? t('panel.copied') : t('panel.copy')) : null,
             report !== null ? h('button', {
-              style: { ...button, flex: 'none', height: '24px', minHeight: '24px', padding: '2px 8px', fontSize: '11px', lineHeight: '16px' },
+              style: { ...button, flex: 'none', height: '28px', minHeight: '28px', padding: '4px 10px', fontSize: '12px', lineHeight: '18px' },
+              onMouseEnter: (e) => {
+                e.currentTarget.style.background = 'var(--dsw-alias-bg-layer-2)'
+                e.currentTarget.style.transform = 'translateY(-1px)'
+              },
+              onMouseLeave: (e) => {
+                e.currentTarget.style.background = 'var(--dsw-alias-bg-layer-1)'
+                e.currentTarget.style.transform = 'translateY(0)'
+              },
               onClick: () => void exportReport(),
             }, exported ? t('panel.exported') : t('panel.export')) : null,
             h('button', {
-              style: { ...button, flex: 'none', height: '24px', minHeight: '24px', padding: '2px 8px', fontSize: '11px', lineHeight: '16px' },
+              style: { 
+                ...button, 
+                flex: 'none', 
+                height: '28px', 
+                minHeight: '28px', 
+                padding: '4px 12px', 
+                fontSize: '12px', 
+                lineHeight: '18px',
+                background: busy ? 'var(--dsw-alias-bg-layer-2)' : 'var(--dsw-alias-state-business-primary)',
+                color: busy ? 'var(--dsw-alias-label-primary)' : 'white',
+                borderColor: busy ? 'var(--dsw-alias-border-l2)' : 'var(--dsw-alias-state-business-primary)',
+              },
               disabled: busy,
+              onMouseEnter: (e) => {
+                if (!busy) {
+                  e.currentTarget.style.background = 'color-mix(in srgb, var(--dsw-alias-state-business-primary) 85%, black 15%)'
+                  e.currentTarget.style.transform = 'translateY(-1px)'
+                }
+              },
+              onMouseLeave: (e) => {
+                if (!busy) {
+                  e.currentTarget.style.background = 'var(--dsw-alias-state-business-primary)'
+                  e.currentTarget.style.transform = 'translateY(0)'
+                }
+              },
               onClick: () => void run(true),
             }, busy ? t('panel.running') : t('panel.run')),
           ),
         ),
-        error !== '' ? h('div', { style: { color: 'var(--dsw-alias-state-error-primary)', fontSize: '12px', lineHeight: '18px' } }, error) : null,
+        error !== '' ? h('div', { style: { color: 'var(--dsw-alias-state-error-primary)', fontSize: '13px', lineHeight: '20px', padding: '10px 14px', borderRadius: '10px', background: 'color-mix(in srgb, var(--dsw-alias-state-error-primary) 8%, transparent)' } }, error) : null,
         true ? h('div', {
           ref: ledgerBoxRef,
-          style: { display: 'flex', flexDirection: 'column', gap: '5px', padding: '7px 9px', borderRadius: '9px', background: 'var(--dsw-alias-bg-layer-2)' },
+          style: { 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '8px', 
+            padding: '12px 14px', 
+            borderRadius: '10px', 
+            background: 'var(--dsw-alias-bg-layer-2)',
+            boxShadow: 'inset 0 1px 2px rgba(0,0,0,.02)',
+          },
         },
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
-          h('strong', { style: { flex: 1, fontSize: '11px', lineHeight: '17px', color: 'var(--dsw-alias-label-tertiary)' } }, `${t('panel.ledger')}${formatTime(ledgerAt) === '' ? '' : ` · ${formatTime(ledgerAt)}`}${formatUsage(extractionUsage) === '' ? '' : ` · 提取 ${formatUsage(extractionUsage)}`}`),
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px' } },
+          h('strong', { style: { flex: 1, fontSize: '12px', lineHeight: '18px', color: 'var(--dsw-alias-label-secondary)', fontWeight: 600 } }, `${t('panel.ledger')}${formatTime(ledgerAt) === '' ? '' : ` · ${formatTime(ledgerAt)}`}${formatUsage(extractionUsage) === '' ? '' : ` · 提取 ${formatUsage(extractionUsage)}`}`),
           h('button', {
             type: 'button',
-            style: { ...button, padding: '1px 6px', fontSize: '10px', lineHeight: '15px' },
+            style: { 
+              ...button, 
+              padding: '3px 10px', 
+              fontSize: '11px', 
+              lineHeight: '16px',
+              background: editing ? 'transparent' : 'var(--dsw-alias-bg-layer-3)',
+            },
+            onMouseEnter: (e) => {
+              e.currentTarget.style.background = editing ? 'var(--dsw-alias-bg-layer-3)' : 'var(--dsw-alias-state-business-primary)'
+              e.currentTarget.style.color = editing ? 'var(--dsw-alias-label-primary)' : 'white'
+            },
+            onMouseLeave: (e) => {
+              e.currentTarget.style.background = editing ? 'transparent' : 'var(--dsw-alias-bg-layer-3)'
+              e.currentTarget.style.color = 'var(--dsw-alias-label-primary)'
+            },
             onClick: () => {
               if (editing) {
                 setDraft(ledger)
@@ -841,26 +1029,110 @@ window.__ModuleLoader__.load({
           }, editing ? t('panel.cancel') : t('panel.edit')),
         ),
         editing
-          ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: '5px' } },
-            ...draft.map((item, index) => h('div', { key: `draft-${index}`, style: { display: 'flex', gap: '5px' } },
+          ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } },
+            ...draft.map((item, index) => h('div', { key: `draft-${index}`, style: { display: 'flex', gap: '8px' } },
               h('input', {
                 value: item,
-                style: { flex: 1, minWidth: 0, borderRadius: '6px', border: '.5px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)', padding: '3px 6px', fontSize: '12px' },
+                style: { 
+                  flex: 1, 
+                  minWidth: 0, 
+                  borderRadius: '8px', 
+                  border: '.5px solid var(--dsw-alias-border-l2)', 
+                  background: 'var(--dsw-alias-bg-layer-1)', 
+                  color: 'var(--dsw-alias-label-primary)', 
+                  padding: '6px 10px', 
+                  fontSize: '12px',
+                  transition: 'all 0.15s ease',
+                },
+                onFocus: (e) => {
+                  e.currentTarget.style.borderColor = 'var(--dsw-alias-state-business-primary)'
+                  e.currentTarget.style.boxShadow = '0 0 0 3px color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent)'
+                },
+                onBlur: (e) => {
+                  e.currentTarget.style.borderColor = 'var(--dsw-alias-border-l2)'
+                  e.currentTarget.style.boxShadow = 'none'
+                },
                 onChange: (event) => {
                   const next = [...draft]
                   next[index] = event.target.value
                   setDraft(next)
                 },
               }),
-              h('button', { type: 'button', style: { ...button, padding: '1px 5px', fontSize: '11px' }, onClick: () => setDraft(draft.filter((_, i) => i !== index)) }, '×'),
+              h('button', { 
+                type: 'button', 
+                style: { 
+                  ...button, 
+                  padding: '4px 10px', 
+                  fontSize: '12px',
+                  color: 'var(--dsw-alias-state-error-primary)',
+                  background: 'transparent',
+                },
+                onMouseEnter: (e) => {
+                  e.currentTarget.style.background = 'color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent)'
+                },
+                onMouseLeave: (e) => {
+                  e.currentTarget.style.background = 'transparent'
+                },
+                onClick: () => setDraft(draft.filter((_, i) => i !== index)) 
+              }, '×'),
             )),
-            h('div', { style: { display: 'flex', gap: '6px' } },
-              h('button', { type: 'button', style: { ...button, padding: '2px 7px', fontSize: '11px' }, onClick: () => setDraft([...draft, '']) }, t('panel.add')),
-              h('button', { type: 'button', style: { ...button, padding: '2px 7px', fontSize: '11px' }, onClick: () => void saveLedger() }, t('panel.saveLedger')),
+            h('div', { style: { display: 'flex', gap: '8px', marginTop: '4px' } },
+              h('button', { 
+                type: 'button', 
+                style: { 
+                  ...button, 
+                  padding: '4px 12px', 
+                  fontSize: '12px',
+                  background: 'var(--dsw-alias-bg-layer-3)',
+                },
+                onMouseEnter: (e) => {
+                  e.currentTarget.style.background = 'var(--dsw-alias-state-business-primary)'
+                  e.currentTarget.style.color = 'white'
+                },
+                onMouseLeave: (e) => {
+                  e.currentTarget.style.background = 'var(--dsw-alias-bg-layer-3)'
+                  e.currentTarget.style.color = 'var(--dsw-alias-label-primary)'
+                },
+                onClick: () => setDraft([...draft, '']) 
+              }, t('panel.add')),
+              h('button', { 
+                type: 'button', 
+                style: { 
+                  ...button, 
+                  padding: '4px 12px', 
+                  fontSize: '12px',
+                  background: 'var(--dsw-alias-state-success-primary)',
+                  color: 'white',
+                  borderColor: 'var(--dsw-alias-state-success-primary)',
+                },
+                onMouseEnter: (e) => {
+                  e.currentTarget.style.background = 'color-mix(in srgb, var(--dsw-alias-state-success-primary) 85%, black 15%)'
+                },
+                onMouseLeave: (e) => {
+                  e.currentTarget.style.background = 'var(--dsw-alias-state-success-primary)'
+                },
+                onClick: () => void saveLedger() 
+              }, t('panel.saveLedger')),
             ),
           )
           : (ledger.length === 0
-            ? h('span', { style: { color: 'var(--dsw-alias-label-tertiary)', fontSize: '11px', lineHeight: '17px' } }, t('panel.ledgerEmpty'))
+            ? h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' } },
+              h('span', { style: { color: 'var(--dsw-alias-label-tertiary)', fontSize: '12px', lineHeight: '18px' } }, t('panel.ledgerEmpty')),
+              typeof extract === 'function' ? h('button', {
+                type: 'button',
+                disabled: extracting,
+                style: {
+                  ...button,
+                  padding: '4px 10px',
+                  fontSize: '11px',
+                  lineHeight: '16px',
+                  background: extracting ? 'var(--dsw-alias-bg-layer-3)' : 'var(--dsw-alias-state-business-primary)',
+                  color: extracting ? 'var(--dsw-alias-label-secondary)' : 'white',
+                  borderColor: extracting ? 'var(--dsw-alias-border-l2)' : 'var(--dsw-alias-state-business-primary)',
+                },
+                onClick: () => void extractLedger(),
+              }, extracting ? t('panel.extracting') : t('panel.extract')) : null,
+            )
             : ledger.map((item, index) => {
               let status = requirementStatus(report, item)
               let source = status === '' ? '' : '本任务'
@@ -877,31 +1149,116 @@ window.__ModuleLoader__.load({
                 }
               }
               const mark = statusMark(status)
-              return h('span', { key: `ledger-${index}`, style: { display: 'flex', alignItems: 'baseline', gap: '5px', fontSize: '12px', lineHeight: '18px', color: 'var(--dsw-alias-label-secondary)' } },
-                h('span', { style: { width: '10px', flex: 'none', color: mark.color, fontWeight: 600 } }, mark.text),
-                h('span', null, `${index + 1}. ${item}`),
+              return h('div', { 
+                key: `ledger-${index}`, 
+                style: { 
+                  display: 'flex', 
+                  alignItems: 'baseline', 
+                  gap: '8px', 
+                  fontSize: '13px', 
+                  lineHeight: '20px', 
+                  color: 'var(--dsw-alias-label-primary)',
+                  padding: '6px 0',
+                  transition: 'all 0.15s ease',
+                },
+                onMouseEnter: (e) => {
+                  e.currentTarget.style.paddingLeft = '4px'
+                },
+                onMouseLeave: (e) => {
+                  e.currentTarget.style.paddingLeft = '0'
+                },
+              },
+                h('span', { style: { width: '14px', flex: 'none', color: mark.color, fontWeight: 700, fontSize: '14px' } }, mark.text),
+                h('span', { style: { flex: 1 } }, `${index + 1}. ${item}`),
                 source === '' ? null : (sourceId !== '' && typeof openSession === 'function'
-                  ? h('button', { type: 'button', style: { ...button, border: 'none', background: 'transparent', padding: 0, fontSize: '10px', lineHeight: '15px', color: 'var(--dsw-alias-label-tertiary)' }, onClick: () => openSession({ sessions: [sourceId] }) }, `· ${source}`)
-                  : h('span', { style: { fontSize: '10px', color: 'var(--dsw-alias-label-tertiary)' } }, `· ${source}`)),
+                  ? h('button', { 
+                    type: 'button', 
+                    style: { 
+                      ...button, 
+                      border: 'none', 
+                      background: 'transparent', 
+                      padding: '2px 6px', 
+                      fontSize: '11px', 
+                      lineHeight: '16px', 
+                      color: 'var(--dsw-alias-label-tertiary)',
+                    },
+                    onMouseEnter: (e) => {
+                      e.currentTarget.style.color = 'var(--dsw-alias-state-business-primary)'
+                      e.currentTarget.style.background = 'color-mix(in srgb, var(--dsw-alias-state-business-primary) 8%, transparent)'
+                    },
+                    onMouseLeave: (e) => {
+                      e.currentTarget.style.color = 'var(--dsw-alias-label-tertiary)'
+                      e.currentTarget.style.background = 'transparent'
+                    },
+                    onClick: () => openSession({ sessions: [sourceId] }) 
+                  }, `· ${source}`)
+                  : h('span', { style: { fontSize: '11px', color: 'var(--dsw-alias-label-tertiary)' } }, `· ${source}`)),
               )
             })),
         ) : null,
         children.length > 0 ? h('div', {
           ref: childBoxRef,
           className: 'reqtrace-children',
-          style: { display: 'flex', flexDirection: 'column', gap: '5px', padding: '7px 9px', borderRadius: '9px', background: 'var(--dsw-alias-bg-layer-2)' },
+          style: { 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '8px', 
+            padding: '12px 14px', 
+            borderRadius: '10px', 
+            background: 'var(--dsw-alias-bg-layer-2)',
+            boxShadow: 'inset 0 1px 2px rgba(0,0,0,.02)',
+          },
         },
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: '5px' } },
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
           h('button', {
             type: 'button',
-            style: { ...button, padding: '1px 6px', fontSize: '10px', lineHeight: '15px' },
+            style: { 
+              ...button, 
+              padding: '3px 10px', 
+              fontSize: '11px', 
+              lineHeight: '16px',
+              background: showChildren ? 'var(--dsw-alias-state-business-primary)' : 'var(--dsw-alias-bg-layer-3)',
+              color: showChildren ? 'white' : 'var(--dsw-alias-label-primary)',
+              borderColor: showChildren ? 'var(--dsw-alias-state-business-primary)' : 'var(--dsw-alias-border-l2)',
+              fontWeight: 600,
+            },
+            onMouseEnter: (e) => {
+              if (showChildren) {
+                e.currentTarget.style.background = 'color-mix(in srgb, var(--dsw-alias-state-business-primary) 85%, black 15%)'
+              } else {
+                e.currentTarget.style.background = 'var(--dsw-alias-state-business-primary)'
+                e.currentTarget.style.color = 'white'
+              }
+            },
+            onMouseLeave: (e) => {
+              if (showChildren) {
+                e.currentTarget.style.background = 'var(--dsw-alias-state-business-primary)'
+                e.currentTarget.style.color = 'white'
+              } else {
+                e.currentTarget.style.background = 'var(--dsw-alias-bg-layer-3)'
+                e.currentTarget.style.color = 'var(--dsw-alias-label-primary)'
+              }
+            },
             onClick: () => setShowChildren((value) => !value),
           }, `${t('panel.children')} (${children.length})`),
           showChildren ? h('button', {
             type: 'button',
             title: '重播喜鹊飞行',
             'aria-label': '重播喜鹊飞行',
-            style: { ...button, flex: 'none', padding: '1px 5px', fontSize: '10px', lineHeight: '15px' },
+            style: { 
+              ...button, 
+              flex: 'none', 
+              padding: '3px 8px', 
+              fontSize: '11px', 
+              lineHeight: '16px',
+              background: 'transparent',
+            },
+            onMouseEnter: (e) => {
+              e.currentTarget.style.background = 'var(--dsw-alias-bg-layer-3)'
+            },
+            onMouseLeave: (e) => {
+              e.currentTarget.style.background = 'transparent'
+            },
             onClick: () => {
               previousChildren.current = new Set()
               setFlightRequest((value) => value + 1)
@@ -915,44 +1272,145 @@ window.__ModuleLoader__.load({
             else childRowRefs.current.set(child.sessionId, element)
           },
           className: 'reqtrace-child-row',
-          style: { display: 'flex', alignItems: 'center', gap: '6px', paddingLeft: `${28 + Math.max(0, Number(child.delegationDepth ?? 1) - 1) * 10}px` },
+          style: { 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px', 
+            paddingLeft: `${32 + Math.max(0, Number(child.delegationDepth ?? 1) - 1) * 12}px`,
+            paddingTop: '6px',
+            paddingBottom: '6px',
+            borderRadius: '8px',
+            transition: 'all 0.15s ease',
+          },
+          onMouseEnter: (e) => {
+            e.currentTarget.style.background = 'var(--dsw-alias-bg-layer-3)'
+            e.currentTarget.style.paddingLeft = `${36 + Math.max(0, Number(child.delegationDepth ?? 1) - 1) * 12}px`
+          },
+          onMouseLeave: (e) => {
+            e.currentTarget.style.background = 'transparent'
+            e.currentTarget.style.paddingLeft = `${32 + Math.max(0, Number(child.delegationDepth ?? 1) - 1) * 12}px`
+          },
         },
-        h('span', { style: { flex: 1, minWidth: 0, fontSize: '11px', lineHeight: '17px', color: 'var(--dsw-alias-label-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `${child.delegationDepth > 1 ? '↳ ' : ''}${child.title ?? child.sessionId} · ${(child.requirements ?? []).length} 条${child.report?.verdict === undefined ? '' : ` · ${child.report.verdict}`}`),
+        h('span', { style: { flex: 1, minWidth: 0, fontSize: '12px', lineHeight: '18px', color: 'var(--dsw-alias-label-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `${child.delegationDepth > 1 ? '↳ ' : ''}${child.title ?? child.sessionId} · ${(child.requirements ?? []).length} 条${child.report?.verdict === undefined ? '' : ` · ${child.report.verdict}`}`),
         typeof openSession === 'function' ? h('button', {
           type: 'button',
-          style: { ...button, flex: 'none', padding: '1px 5px', fontSize: '10px', lineHeight: '15px' },
+          style: { 
+            ...button, 
+            flex: 'none', 
+            padding: '2px 8px', 
+            fontSize: '11px', 
+            lineHeight: '16px',
+            background: 'var(--dsw-alias-state-business-primary)',
+            color: 'white',
+            borderColor: 'var(--dsw-alias-state-business-primary)',
+          },
+          onMouseEnter: (e) => {
+            e.currentTarget.style.background = 'color-mix(in srgb, var(--dsw-alias-state-business-primary) 85%, black 15%)'
+          },
+          onMouseLeave: (e) => {
+            e.currentTarget.style.background = 'var(--dsw-alias-state-business-primary)'
+          },
           onClick: () => openSession({ sessions: [child.sessionId] }),
         }, t('panel.openSession')) : null,
         )) : []),
         ) : null,
         globalHistory.length > 0 ? h('div', {
-          style: { display: 'flex', flexDirection: 'column', gap: '5px', padding: '7px 9px', borderRadius: '9px', background: 'var(--dsw-alias-bg-layer-2)' },
+          style: { 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '8px', 
+            padding: '12px 14px', 
+            borderRadius: '10px', 
+            background: 'var(--dsw-alias-bg-layer-2)',
+            boxShadow: 'inset 0 1px 2px rgba(0,0,0,.02)',
+          },
         },
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px' } },
           h('button', {
             type: 'button',
-            style: { ...button, flex: 1, textAlign: 'left', padding: '1px 6px', fontSize: '10px', lineHeight: '15px' },
+            style: { 
+              ...button, 
+              flex: 1, 
+              textAlign: 'left', 
+              padding: '3px 10px', 
+              fontSize: '11px', 
+              lineHeight: '16px',
+              background: showHistory ? 'var(--dsw-alias-state-business-primary)' : 'var(--dsw-alias-bg-layer-3)',
+              color: showHistory ? 'white' : 'var(--dsw-alias-label-primary)',
+              borderColor: showHistory ? 'var(--dsw-alias-state-business-primary)' : 'var(--dsw-alias-border-l2)',
+              fontWeight: 600,
+            },
+            onMouseEnter: (e) => {
+              if (showHistory) {
+                e.currentTarget.style.background = 'color-mix(in srgb, var(--dsw-alias-state-business-primary) 85%, black 15%)'
+              } else {
+                e.currentTarget.style.background = 'var(--dsw-alias-state-business-primary)'
+                e.currentTarget.style.color = 'white'
+              }
+            },
+            onMouseLeave: (e) => {
+              if (showHistory) {
+                e.currentTarget.style.background = 'var(--dsw-alias-state-business-primary)'
+                e.currentTarget.style.color = 'white'
+              } else {
+                e.currentTarget.style.background = 'var(--dsw-alias-bg-layer-3)'
+                e.currentTarget.style.color = 'var(--dsw-alias-label-primary)'
+              }
+            },
             onClick: () => setShowHistory((value) => !value),
           }, `${t('panel.history')} (${globalHistory.length})`),
-          notice !== '' ? h('span', { style: { fontSize: '10px', color: 'var(--dsw-alias-state-success-primary)' } }, notice) : null,
+          notice !== '' ? h('span', { style: { fontSize: '11px', color: 'var(--dsw-alias-state-success-primary)', fontWeight: 500 } }, notice) : null,
         ),
         showHistory ? globalHistory.map((item, index) => {
           const requirements = item.requirements ?? []
           return h('div', {
             key: `history-task-${index}`,
-            style: { display: 'flex', alignItems: 'flex-start', gap: '6px', padding: '4px 0', borderTop: index === 0 ? 'none' : '.5px solid var(--dsw-alias-border-l2)' },
+            style: { 
+              display: 'flex', 
+              alignItems: 'flex-start', 
+              gap: '8px', 
+              padding: '8px 10px', 
+              borderTop: index === 0 ? 'none' : '.5px solid var(--dsw-alias-border-l2)',
+              borderRadius: '8px',
+              transition: 'all 0.15s ease',
+            },
+            onMouseEnter: (e) => {
+              e.currentTarget.style.background = 'var(--dsw-alias-bg-layer-3)'
+            },
+            onMouseLeave: (e) => {
+              e.currentTarget.style.background = 'transparent'
+            },
           },
-          h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '1px' } },
-            h('span', { style: { fontSize: '11px', color: 'var(--dsw-alias-label-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, `${index + 1}. ${item.subagent || item.parentSessionId ? '↳ ' : ''}${item.title ?? item.sessionId} · ${requirements.length} 条${formatTime(item.at) === '' ? '' : ` · ${formatTime(item.at)}`}`),
-            h('span', { style: { fontSize: '10px', color: 'var(--dsw-alias-label-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, requirements.slice(0, 2).join(' / ')),
+          h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '3px' } },
+            h('span', { style: { fontSize: '12px', color: 'var(--dsw-alias-label-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 } }, `${index + 1}. ${item.subagent || item.parentSessionId ? '↳ ' : ''}${item.title ?? item.sessionId} · ${requirements.length} 条${formatTime(item.at) === '' ? '' : ` · ${formatTime(item.at)}`}`),
+            h('span', { style: { fontSize: '11px', color: 'var(--dsw-alias-label-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, requirements.slice(0, 2).join(' / ')),
           ),
-          h('button', { type: 'button', style: { ...button, flex: 'none', padding: '1px 6px', fontSize: '10px', lineHeight: '15px' }, onClick: () => void resumeTask(index + 1) }, t('panel.resume')),
+          h('button', { 
+            type: 'button', 
+            style: { 
+              ...button, 
+              flex: 'none', 
+              padding: '3px 10px', 
+              fontSize: '11px', 
+              lineHeight: '16px',
+              background: 'var(--dsw-alias-state-success-primary)',
+              color: 'white',
+              borderColor: 'var(--dsw-alias-state-success-primary)',
+            },
+            onMouseEnter: (e) => {
+              e.currentTarget.style.background = 'color-mix(in srgb, var(--dsw-alias-state-success-primary) 85%, black 15%)'
+            },
+            onMouseLeave: (e) => {
+              e.currentTarget.style.background = 'var(--dsw-alias-state-success-primary)'
+            },
+            onClick: () => void resumeTask(index + 1) 
+          }, t('panel.resume')),
           )
         }) : null,
         ) : null,
         h('div', { ref: reportBoxRef, style: { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 } },
           report !== null
-            ? h(ReportView, { t, report, openSession })
+            ? h(ReportView, { t, report, openSession, onFix: fix })
             : h('div', { style: { color: 'var(--dsw-alias-label-tertiary)', fontSize: '12px' } }, busy ? t('panel.running') : t('panel.empty')),
         ),
       )
@@ -1074,94 +1532,177 @@ window.__ModuleLoader__.load({
       }
 
       if (config === null) return h('div', { style: card }, error || '…')
-      const row = { display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', padding: '4px 0' }
-      return h('div', { style: { ...card, maxWidth: '720px' } },
+      const row = { display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', padding: '8px 0' }
+      return h('div', { style: { ...card, maxWidth: '760px' } },
         h('div', { style: header },
           h('div', {
             style: {
-              width: '30px', height: '30px', borderRadius: '9px', display: 'grid',
-              placeItems: 'center', flex: 'none', color: 'var(--dsw-alias-state-business-primary)',
+              width: '36px', 
+              height: '36px', 
+              borderRadius: '10px', 
+              display: 'grid',
+              placeItems: 'center', 
+              flex: 'none', 
+              color: 'var(--dsw-alias-state-business-primary)',
               background: 'color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent)',
+              boxShadow: '0 2px 4px rgba(0,0,0,.04)',
             },
-          }, h(Icon)),
-          h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' } },
-            h('strong', { style: { fontSize: '15px', lineHeight: '22px' } }, t('settings.title')),
-            h('span', { style: { fontSize: '11px', lineHeight: '17px', color: 'var(--dsw-alias-label-tertiary)' } }, t('settings.description')),
+          }, h(Icon, { size: 20 })),
+          h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '3px' } },
+            h('strong', { style: { fontSize: '16px', lineHeight: '24px', fontWeight: 600 } }, t('settings.title')),
+            h('span', { style: { fontSize: '12px', lineHeight: '18px', color: 'var(--dsw-alias-label-tertiary)' } }, t('settings.description')),
           ),
         ),
-        h('div', { style: { height: '.5px', background: 'var(--dsw-alias-border-l2)', margin: '2px 0' } }),
+        h('div', { style: { height: '.5px', background: 'var(--dsw-alias-border-l2)', margin: '4px 0' } }),
         h('label', { style: row },
-          h('span', { style: { fontSize: '13px' } }, t('settings.autoAudit')),
+          h('span', { style: { fontSize: '14px', fontWeight: 500 } }, t('settings.autoAudit')),
           h('input', {
             type: 'checkbox',
             checked: config.autoAudit === true,
+            style: { width: '18px', height: '18px', cursor: 'pointer' },
             onChange: (event) => setConfig({ ...config, autoAudit: event.target.checked }),
           }),
         ),
-        h('div', { style: { color: 'var(--dsw-alias-label-tertiary)', fontSize: '11px', lineHeight: '17px', marginTop: '-4px' } }, t('settings.autoAuditHint')),
+        h('div', { style: { color: 'var(--dsw-alias-label-tertiary)', fontSize: '12px', lineHeight: '18px', marginTop: '-6px', paddingLeft: '4px' } }, t('settings.autoAuditHint')),
         h('label', { style: row },
-          h('span', { style: { fontSize: '13px' } }, t('settings.autoExtract')),
+          h('span', { style: { fontSize: '14px', fontWeight: 500 } }, t('settings.autoExtract')),
           h('input', {
             type: 'checkbox',
             checked: config.autoExtract === true,
+            style: { width: '18px', height: '18px', cursor: 'pointer' },
             onChange: (event) => setConfig({ ...config, autoExtract: event.target.checked }),
           }),
         ),
-        h('div', { style: { color: 'var(--dsw-alias-label-tertiary)', fontSize: '11px', lineHeight: '17px', marginTop: '-4px' } }, t('settings.autoExtractHint')),
+        h('div', { style: { color: 'var(--dsw-alias-label-tertiary)', fontSize: '12px', lineHeight: '18px', marginTop: '-6px', paddingLeft: '4px' } }, t('settings.autoExtractHint')),
         h('label', { style: row },
-          h('span', { style: { fontSize: '13px' } }, t('settings.strict')),
+          h('span', { style: { fontSize: '14px', fontWeight: 500 } }, t('settings.strict')),
           h('input', {
             type: 'checkbox',
             checked: config.strict === true,
+            style: { width: '18px', height: '18px', cursor: 'pointer' },
             onChange: (event) => setConfig({ ...config, strict: event.target.checked }),
           }),
         ),
-        h('div', { style: { color: 'var(--dsw-alias-label-tertiary)', fontSize: '11px', lineHeight: '17px', marginTop: '-4px' } }, t('settings.strictHint')),
-        h('div', { style: { color: 'var(--dsw-alias-label-tertiary)', fontSize: '10px', lineHeight: '15px', marginTop: '2px' } }, t('settings.costHint')),
+        h('div', { style: { color: 'var(--dsw-alias-label-tertiary)', fontSize: '12px', lineHeight: '18px', marginTop: '-6px', paddingLeft: '4px' } }, t('settings.strictHint')),
+        h('div', { style: { color: 'var(--dsw-alias-label-tertiary)', fontSize: '11px', lineHeight: '17px', marginTop: '4px', padding: '8px 12px', borderRadius: '8px', background: 'var(--dsw-alias-bg-layer-2)' } }, t('settings.costHint')),
         h('label', { style: row },
-          h('span', { style: { fontSize: '13px' } }, t('settings.minToolCalls')),
+          h('span', { style: { fontSize: '14px', fontWeight: 500 } }, t('settings.minToolCalls')),
           h('input', {
             type: 'number',
             min: 1,
             max: 20,
             value: config.minToolCalls,
-            style: { width: '70px', borderRadius: '7px', border: '.5px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-bg-layer-2)', color: 'var(--dsw-alias-label-primary)', padding: '4px 7px', fontSize: '12px' },
+            style: { 
+              width: '80px', 
+              borderRadius: '8px', 
+              border: '.5px solid var(--dsw-alias-border-l2)', 
+              background: 'var(--dsw-alias-bg-layer-2)', 
+              color: 'var(--dsw-alias-label-primary)', 
+              padding: '6px 10px', 
+              fontSize: '13px',
+              transition: 'all 0.15s ease',
+            },
+            onFocus: (e) => {
+              e.currentTarget.style.borderColor = 'var(--dsw-alias-state-business-primary)'
+              e.currentTarget.style.boxShadow = '0 0 0 3px color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent)'
+            },
+            onBlur: (e) => {
+              e.currentTarget.style.borderColor = 'var(--dsw-alias-border-l2)'
+              e.currentTarget.style.boxShadow = 'none'
+            },
             onChange: (event) => setConfig({ ...config, minToolCalls: Number(event.target.value) }),
           }),
         ),
-        h('div', { style: { color: 'var(--dsw-alias-label-tertiary)', fontSize: '11px', lineHeight: '17px', marginTop: '-4px' } }, t('settings.minToolCallsHint')),
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', paddingTop: '4px' } },
-          h('button', { style: { ...button, padding: '4px 12px', fontSize: '12px' }, disabled: saving, onClick: () => void save() }, saving ? t('settings.saving') : t('settings.save')),
-          saved ? h('span', { style: { color: 'var(--dsw-alias-state-success-primary)', fontSize: '12px' } }, t('settings.saved')) : null,
-          error ? h('span', { style: { color: 'var(--dsw-alias-state-error-primary)', fontSize: '12px' } }, error) : null,
+        h('div', { style: { color: 'var(--dsw-alias-label-tertiary)', fontSize: '12px', lineHeight: '18px', marginTop: '-6px', paddingLeft: '4px' } }, t('settings.minToolCallsHint')),
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: '12px', paddingTop: '8px' } },
+          h('button', { 
+            style: { 
+              ...button, 
+              padding: '6px 16px', 
+              fontSize: '13px',
+              background: saving ? 'var(--dsw-alias-bg-layer-2)' : 'var(--dsw-alias-state-success-primary)',
+              color: saving ? 'var(--dsw-alias-label-primary)' : 'white',
+              borderColor: saving ? 'var(--dsw-alias-border-l2)' : 'var(--dsw-alias-state-success-primary)',
+            },
+            disabled: saving, 
+            onMouseEnter: (e) => {
+              if (!saving) {
+                e.currentTarget.style.background = 'color-mix(in srgb, var(--dsw-alias-state-success-primary) 85%, black 15%)'
+                e.currentTarget.style.transform = 'translateY(-1px)'
+              }
+            },
+            onMouseLeave: (e) => {
+              if (!saving) {
+                e.currentTarget.style.background = 'var(--dsw-alias-state-success-primary)'
+                e.currentTarget.style.transform = 'translateY(0)'
+              }
+            },
+            onClick: () => void save() 
+          }, saving ? t('settings.saving') : t('settings.save')),
+          saved ? h('span', { style: { color: 'var(--dsw-alias-state-success-primary)', fontSize: '13px', fontWeight: 500 } }, t('settings.saved')) : null,
+          error ? h('span', { style: { color: 'var(--dsw-alias-state-error-primary)', fontSize: '13px' } }, error) : null,
         ),
-        h('div', { style: { height: '.5px', background: 'var(--dsw-alias-border-l2)', margin: '4px 0' } }),
-        h('strong', { style: { fontSize: '13px', lineHeight: '20px' } }, t('settings.history')),
-        h('div', { style: { display: 'flex', flexDirection: 'column', gap: '5px', maxHeight: '220px', overflow: 'auto' } },
+        h('div', { style: { height: '.5px', background: 'var(--dsw-alias-border-l2)', margin: '8px 0' } }),
+        h('strong', { style: { fontSize: '14px', lineHeight: '22px', fontWeight: 600 } }, t('settings.history')),
+        h('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '260px', overflow: 'auto' } },
           history.length === 0
-            ? h('span', { style: { color: 'var(--dsw-alias-label-tertiary)', fontSize: '12px' } }, t('settings.historyEmpty'))
+            ? h('span', { style: { color: 'var(--dsw-alias-label-tertiary)', fontSize: '13px' } }, t('settings.historyEmpty'))
             : history.map((ledger) => {
               const expanded = expandedHistory === ledger.sessionId
               const requirements = ledger.requirements ?? []
               return h('div', {
                 key: ledger.sessionId,
-                style: { padding: '6px 8px', borderRadius: '8px', background: 'var(--dsw-alias-bg-layer-2)', display: 'flex', flexDirection: 'column', gap: '2px', cursor: 'pointer' },
+                style: { 
+                  padding: '10px 12px', 
+                  borderRadius: '10px', 
+                  background: 'var(--dsw-alias-bg-layer-2)', 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  gap: '6px', 
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                  border: '.5px solid transparent',
+                },
+                onMouseEnter: (e) => {
+                  e.currentTarget.style.background = 'color-mix(in srgb, var(--dsw-alias-bg-layer-2) 95%, var(--dsw-alias-state-business-primary) 5%)'
+                  e.currentTarget.style.borderColor = 'var(--dsw-alias-border-l2)'
+                },
+                onMouseLeave: (e) => {
+                  e.currentTarget.style.background = 'var(--dsw-alias-bg-layer-2)'
+                  e.currentTarget.style.borderColor = 'transparent'
+                },
                 onClick: () => setExpandedHistory(expanded ? '' : ledger.sessionId),
               },
-              h('div', { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
-                h('span', { style: { flex: 1, minWidth: 0, fontSize: '12px', color: 'var(--dsw-alias-label-primary)' } }, `${ledger.subagent || ledger.parentSessionId ? '↳ ' : ''}${ledger.title ?? ledger.sessionId} · ${requirements.length} 条${formatTime(ledger.at) === '' ? '' : ` · ${formatTime(ledger.at)}`}`),
+              h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
+                h('span', { style: { flex: 1, minWidth: 0, fontSize: '13px', color: 'var(--dsw-alias-label-primary)', fontWeight: 500 } }, `${ledger.subagent || ledger.parentSessionId ? '↳ ' : ''}${ledger.title ?? ledger.sessionId} · ${requirements.length} 条${formatTime(ledger.at) === '' ? '' : ` · ${formatTime(ledger.at)}`}`),
                 h('button', {
                   type: 'button',
-                  style: { ...button, flex: 'none', padding: '1px 5px', fontSize: '10px', lineHeight: '15px' },
+                  style: { 
+                    ...button, 
+                    flex: 'none', 
+                    padding: '2px 8px', 
+                    fontSize: '11px', 
+                    lineHeight: '16px',
+                    background: 'transparent',
+                    color: confirmClearId === ledger.id ? 'var(--dsw-alias-state-error-primary)' : 'var(--dsw-alias-label-tertiary)',
+                  },
+                  onMouseEnter: (e) => {
+                    e.currentTarget.style.background = confirmClearId === ledger.id ? 'color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent)' : 'var(--dsw-alias-bg-layer-3)'
+                    e.currentTarget.style.color = confirmClearId === ledger.id ? 'var(--dsw-alias-state-error-primary)' : 'var(--dsw-alias-label-primary)'
+                  },
+                  onMouseLeave: (e) => {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.color = confirmClearId === ledger.id ? 'var(--dsw-alias-state-error-primary)' : 'var(--dsw-alias-label-tertiary)'
+                  },
                   onClick: (event) => {
                     event.stopPropagation()
                     void clearOne(ledger)
                   },
                 }, confirmClearId === ledger.id ? t('settings.confirmClearOne') : t('settings.clearOne')),
               ),
-              h('span', { style: { fontSize: '11px', color: 'var(--dsw-alias-label-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, requirements.slice(0, 2).join(' / ')),
-              expanded ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: '1px', marginTop: '4px' } },
-                ...requirements.map((item, index) => h('span', { key: `history-${index}`, style: { fontSize: '11px', color: 'var(--dsw-alias-label-secondary)' } }, `${index + 1}. ${item}`)),
+              h('span', { style: { fontSize: '12px', color: 'var(--dsw-alias-label-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, requirements.slice(0, 2).join(' / ')),
+              expanded ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '4px', paddingTop: '6px', borderTop: '.5px solid var(--dsw-alias-border-l2)' } },
+                ...requirements.map((item, index) => h('span', { key: `history-${index}`, style: { fontSize: '12px', color: 'var(--dsw-alias-label-secondary)' } }, `${index + 1}. ${item}`)),
               ) : null,
               )
             }),
@@ -1171,9 +1712,29 @@ window.__ModuleLoader__.load({
           style: {
             ...button,
             alignSelf: 'flex-start',
-            padding: '3px 8px',
-            fontSize: '11px',
-            color: confirmClear ? 'var(--dsw-alias-state-error-primary)' : 'var(--dsw-alias-label-tertiary)',
+            padding: '5px 12px',
+            fontSize: '12px',
+            marginTop: '4px',
+            color: confirmClear ? 'white' : 'var(--dsw-alias-label-tertiary)',
+            background: confirmClear ? 'var(--dsw-alias-state-error-primary)' : 'transparent',
+            borderColor: confirmClear ? 'var(--dsw-alias-state-error-primary)' : 'var(--dsw-alias-border-l2)',
+          },
+          onMouseEnter: (e) => {
+            if (confirmClear) {
+              e.currentTarget.style.background = 'color-mix(in srgb, var(--dsw-alias-state-error-primary) 85%, black 15%)'
+            } else {
+              e.currentTarget.style.background = 'color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent)'
+              e.currentTarget.style.color = 'var(--dsw-alias-state-error-primary)'
+            }
+          },
+          onMouseLeave: (e) => {
+            if (confirmClear) {
+              e.currentTarget.style.background = 'var(--dsw-alias-state-error-primary)'
+              e.currentTarget.style.color = 'white'
+            } else {
+              e.currentTarget.style.background = 'transparent'
+              e.currentTarget.style.color = 'var(--dsw-alias-label-tertiary)'
+            }
           },
           onClick: () => void clearAll(),
         }, confirmClear ? t('settings.confirmClear') : t('settings.clearHistory')),
@@ -1291,6 +1852,8 @@ window.__ModuleLoader__.load({
             return {
               sessionId,
               resume: (index) => ctx.remote.commands.execute(sessionId, `/reqtrace resume ${index}`, []),
+              fix: () => ctx.remote.commands.execute(sessionId, '/reqtrace fix', []),
+              extract: () => ctx.remote.commands.execute(sessionId, '/reqtrace extract', []),
               openSession: (item) => {
                 const childSessionId = Array.isArray(item?.sessions) ? item.sessions[0] : undefined
                 const workspace = ctx.get?.('uiWorkspace')

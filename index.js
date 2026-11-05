@@ -552,12 +552,52 @@ export function apply(ctx) {
     commandCtx.commands.register({
       definitionId: 'dsh-reqtrace',
       name: 'reqtrace',
-      description: 'Audit a session, resume a historical checklist, or clear saved data',
-      input: { hint: '[可选：额外关注点 | audit <session-id> | history | resume <序号> | clear]' },
+      description: 'Audit a session, extract or fix its checklist, resume history, or clear saved data',
+      input: { hint: '[可选：额外关注点 | fix | extract | audit <session-id> | history | resume <序号> | clear]' },
       handler: async (invocation) => {
         const input = invocation.rawInput.trim()
         if (input === 'history' || input === '历史') {
           return { kind: 'success', text: formatHistory() }
+        }
+        if (input === 'extract' || input === '提取') {
+          const session = invocation.agent?.session
+          if (session === undefined) return { kind: 'error', text: '没有找到当前会话。' }
+          try {
+            const events = readEvents(session)
+            const latest = [...events].reverse().find((event) => event?.type === 'user/message' && (event.surfaceOp === undefined || event.surfaceOp === 'append'))
+            const text = blocksText(latest?.data?.content)
+            if (latest === undefined || !shouldExtract(text)) return { kind: 'error', text: '当前会话还没有可拆解的任务描述。' }
+            await runExtraction(session, text, latest.seq)
+            const ledger = taskLedgers.get(session.id)
+            return { kind: 'success', text: `已从当前任务提取 ${ledger?.requirements?.length ?? 0} 条验收清单。` }
+          } catch (error) {
+            return { kind: 'error', text: `提取失败：${error?.message ?? error}` }
+          }
+        }
+        if (input === 'fix' || input === '补齐') {
+          const session = invocation.agent?.session
+          if (session === undefined) return { kind: 'error', text: '没有找到当前会话。' }
+          if (typeof invocation.agent?.steer !== 'function') return { kind: 'error', text: '当前会话不能接收补齐指令。' }
+          try {
+            const report = await auditSession(ctx, session, invocation.signal, {
+              requirements: currentTaskFor(session)?.requirements ?? [],
+              childLedgers: childLedgersFor(session),
+            })
+            if (typeof report === 'string') return { kind: 'error', text: report }
+            const items = [...(report.missing ?? []), ...(report.partial ?? [])]
+            if (items.length === 0) return { kind: 'success', text: '没有需要补齐的明确需求。' }
+            const lines = items.slice(0, 5).map((item) => `- ${item.requirement}${item.missing ? `（还缺：${item.missing}）` : item.why ? `（${item.why}）` : ''}`)
+            invocation.agent.steer({
+              id: randomUUID(),
+              role: 'user',
+              content: [{ type: 'text', text: `[需求对账] 请按当前任务补齐这些验收项，并给出可核对的证据：\n${lines.join('\n')}\n补齐后再结束任务。` }],
+              source: { kind: 'user' },
+            })
+            rememberReport(session.id, report)
+            return { kind: 'success', text: `已把 ${items.length} 条缺失/部分完成的需求发回当前任务。` }
+          } catch (error) {
+            return { kind: 'error', text: `补齐失败：${error?.message ?? error}` }
+          }
         }
         if (input === 'resume' || input === '继续任务') {
           return { kind: 'success', text: formatResumeList() }
