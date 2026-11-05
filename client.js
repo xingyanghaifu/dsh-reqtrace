@@ -955,6 +955,41 @@ window.__ModuleLoader__.load({
       )
     }
 
+    class PanelBoundary extends React.Component {
+      constructor(props) {
+        super(props)
+        this.state = { error: null }
+      }
+
+      static getDerivedStateFromError(error) {
+        return { error }
+      }
+
+      componentDidCatch(error, info) {
+        console.error('[reqtrace] panel failed', error, info)
+      }
+
+      render() {
+        if (this.state.error !== null) {
+          const detail = String(this.state.error?.stack ?? this.state.error)
+          return h('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px', padding: '12px', overflow: 'auto', fontSize: '11px', color: 'var(--dsw-alias-label-secondary)' } },
+            h('strong', { style: { color: 'var(--dsw-alias-state-error-primary)' } }, '需求对账面板渲染失败'),
+            h('pre', { style: { margin: 0, whiteSpace: 'pre-wrap', font: '10px/1.45 var(--ds-font-family-code, monospace)' } }, detail.slice(0, 4000)),
+            h('button', {
+              type: 'button',
+              style: { alignSelf: 'flex-start', padding: '3px 8px', fontSize: '11px', border: '1px solid var(--dsw-alias-border-l1)', borderRadius: '6px', background: 'transparent', color: 'inherit', cursor: 'pointer' },
+              onClick: () => this.setState({ error: null }),
+            }, '重试'),
+          )
+        }
+        return this.props.children
+      }
+    }
+
+    function SafeAuditPanel(props) {
+      return h(PanelBoundary, null, h(AuditPanel, props))
+    }
+
     function SettingsPage({ t }) {
       const [config, setConfig] = React.useState(null)
       const [history, setHistory] = React.useState([])
@@ -1262,7 +1297,7 @@ window.__ModuleLoader__.load({
               },
             }
           },
-        }, AuditPanel))
+        }, SafeAuditPanel))
         ctx.slots.inject('conversation.input.left', () => ctx.slots.register({
           name: 'conversation.input.left',
           id: 'reqtrace-open',

@@ -15,6 +15,7 @@ test('client registers the sidebar tab, its body and the open button', async () 
 
   const React = {
     createElement: () => null,
+    Component: class { constructor(props) { this.props = props; this.state = {} } },
     useState: (value) => [typeof value === 'function' ? value() : value, () => {}],
     useEffect: () => {},
     useCallback: (fn) => fn,
