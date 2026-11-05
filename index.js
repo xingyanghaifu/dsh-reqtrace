@@ -552,8 +552,8 @@ export function apply(ctx) {
     commandCtx.commands.register({
       definitionId: 'dsh-reqtrace',
       name: 'reqtrace',
-      description: 'Audit a session, extract or fix its checklist, resume history, or clear saved data',
-      input: { hint: '[可选：额外关注点 | fix | extract | audit <session-id> | history | resume <序号> | clear]' },
+      description: 'Audit a session, resume a historical checklist, or clear saved data',
+      input: { hint: '[可选：额外关注点 | audit <session-id> | history | resume <序号> | clear]' },
       handler: async (invocation) => {
         const input = invocation.rawInput.trim()
         if (input === 'history' || input === '历史') {

@@ -903,34 +903,6 @@ window.__ModuleLoader__.load({
             h('span', { style: { fontSize: '12px', lineHeight: '18px', color: 'var(--dsw-alias-label-tertiary)' } }, t('panel.description')),
           ),
           h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', flex: 'none', alignSelf: 'center' } },
-            h('button', {
-              type: 'button',
-              title: '预览喜鹊飞行',
-              'aria-label': '预览喜鹊飞行',
-              style: { 
-                ...button, 
-                flex: 'none', 
-                width: '28px', 
-                minWidth: '28px', 
-                height: '28px', 
-                minHeight: '28px', 
-                padding: 0, 
-                fontSize: '12px', 
-                lineHeight: '16px',
-                background: 'var(--dsw-alias-bg-layer-2)',
-              },
-              onMouseEnter: (e) => {
-                e.currentTarget.style.background = 'var(--dsw-alias-state-business-primary)'
-                e.currentTarget.style.color = 'white'
-                e.currentTarget.style.transform = 'scale(1.05)'
-              },
-              onMouseLeave: (e) => {
-                e.currentTarget.style.background = 'var(--dsw-alias-bg-layer-2)'
-                e.currentTarget.style.color = 'var(--dsw-alias-label-primary)'
-                e.currentTarget.style.transform = 'scale(1)'
-              },
-              onClick: playDemoFlight,
-            }, '▶'),
             report !== null ? h('button', {
               style: { ...button, flex: 'none', height: '28px', minHeight: '28px', padding: '4px 10px', fontSize: '12px', lineHeight: '18px' },
               onMouseEnter: (e) => {
@@ -1123,12 +1095,13 @@ window.__ModuleLoader__.load({
                 disabled: extracting,
                 style: {
                   ...button,
-                  padding: '4px 10px',
+                  padding: 0,
                   fontSize: '11px',
-                  lineHeight: '16px',
-                  background: extracting ? 'var(--dsw-alias-bg-layer-3)' : 'var(--dsw-alias-state-business-primary)',
-                  color: extracting ? 'var(--dsw-alias-label-secondary)' : 'white',
-                  borderColor: extracting ? 'var(--dsw-alias-border-l2)' : 'var(--dsw-alias-state-business-primary)',
+                  lineHeight: '18px',
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--dsw-alias-state-business-primary)',
+                  textDecoration: 'underline',
                 },
                 onClick: () => void extractLedger(),
               }, extracting ? t('panel.extracting') : t('panel.extract')) : null,
