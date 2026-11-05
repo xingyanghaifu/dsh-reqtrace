@@ -296,17 +296,24 @@ window.__ModuleLoader__.load({
       return ''
     }
 
-    function requirementEvidence(report, text) {
+    function requirementEntry(report, text) {
       if (report === null || report === undefined || typeof report === 'string') return null
       const wanted = normalizeRequirement(text)
       if (wanted === '') return null
-      for (const item of [...asList(report.done), ...asList(report.partial), ...asList(report.missing)]) {
-        const candidate = normalizeRequirement(item?.requirement)
-        if (candidate === wanted || (candidate.length > 4 && wanted.length > 4 && (candidate.includes(wanted) || wanted.includes(candidate)))) {
-          return { tools: asList(item?.tools), files: asList(item?.files) }
+      for (const [status, items] of [['done', asList(report.done)], ['partial', asList(report.partial)], ['missing', asList(report.missing)]]) {
+        for (const item of items) {
+          const candidate = normalizeRequirement(item?.requirement)
+          if (candidate === wanted || (candidate.length > 4 && wanted.length > 4 && (candidate.includes(wanted) || wanted.includes(candidate)))) {
+            return { status, item }
+          }
         }
       }
       return null
+    }
+
+    function requirementEvidence(report, text) {
+      const found = requirementEntry(report, text)
+      return found === null ? null : { tools: asList(found.item?.tools), files: asList(found.item?.files) }
     }
 
     function statusMark(status) {
@@ -1630,28 +1637,43 @@ window.__ModuleLoader__.load({
           requirements.length === 0
             ? h('span', { style: { fontSize: '11px', color: 'var(--dsw-alias-label-tertiary)' } }, t('panel.ledgerEmpty'))
             : requirements.map((requirement, requirementIndex) => {
-              const status = requirementStatus(item.report, requirement)
-              const mark = statusMark(status)
-              const evidence = requirementEvidence(item.report, requirement)
-              return h('div', { key: `history-requirement-${requirementIndex}`, style: { display: 'flex', alignItems: 'baseline', gap: '7px', fontSize: '12px', lineHeight: '19px' } },
-                h('span', { style: { width: '12px', flex: 'none', color: mark.color, fontWeight: 700 } }, mark.text),
-                h('span', { style: { flex: 1, minWidth: 0, color: 'var(--dsw-alias-label-primary)' } }, `${requirementIndex + 1}. ${textOf(requirement)}`),
-                evidence !== null && (evidence.tools.length > 0 || evidence.files.length > 0)
-                  ? h('span', { style: { fontSize: '10px', color: 'var(--dsw-alias-label-quaternary)', whiteSpace: 'nowrap' } }, `${evidence.tools.length} 工具 · ${evidence.files.length} 文件`)
-                  : null,
+              const found = requirementEntry(item.report, requirement)
+              const mark = statusMark(found?.status ?? '')
+              const detail = found?.status === 'missing'
+                ? found.item?.why
+                : found?.status === 'partial'
+                  ? found?.item?.missing
+                  : found?.status === 'done'
+                    ? found?.item?.evidence
+                    : ''
+              return h('div', { key: `history-requirement-${requirementIndex}`, style: { display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '12px', lineHeight: '19px', padding: '4px 0' } },
+                h('div', { style: { display: 'flex', alignItems: 'baseline', gap: '7px' } },
+                  h('span', { style: { width: '12px', flex: 'none', color: mark.color, fontWeight: 700 } }, mark.text),
+                  h('span', { style: { flex: 1, minWidth: 0, color: 'var(--dsw-alias-label-primary)' } }, `${requirementIndex + 1}. ${textOf(requirement)}`),
+                ),
+                detail !== undefined && detail !== '' ? h('div', { style: { paddingLeft: '19px', fontSize: '11px', color: 'var(--dsw-alias-label-tertiary)', lineHeight: '17px' } }, textOf(detail)) : null,
+                found?.item?.tools?.length ? h('div', { style: { paddingLeft: '19px', fontSize: '11px', color: 'var(--dsw-alias-label-secondary)' } }, `工具：${found.item.tools.map(textOf).join(' · ')}`) : null,
+                found?.item?.files?.length ? h('div', { style: { paddingLeft: '19px', fontSize: '11px', color: 'var(--dsw-alias-label-tertiary)', fontFamily: 'var(--ds-font-family-code)', overflowWrap: 'anywhere' } }, `文件：${found.item.files.map(textOf).join(' · ')}`) : null,
+                found?.item?.commands?.length ? h('div', { style: { paddingLeft: '19px', fontSize: '11px', color: 'var(--dsw-alias-label-secondary)', fontFamily: 'var(--ds-font-family-code)', overflowWrap: 'anywhere' } }, `命令：${found.item.commands.map(textOf).join(' · ')}`) : null,
               )
             }),
-          h('div', { style: { display: 'flex', gap: '8px', marginTop: '4px' } },
+          asList(item.report?.next).length > 0 ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '4px', paddingTop: '6px', borderTop: '.5px solid var(--dsw-alias-border-l2)' } },
+            h('span', { style: { fontSize: '11px', fontWeight: 600, color: 'var(--dsw-alias-label-secondary)' } }, t('panel.next')),
+            ...asList(item.report.next).map((next, nextIndex) => h('div', { key: `history-next-${nextIndex}`, style: { display: 'flex', flexDirection: 'column', gap: '1px', fontSize: '11px', lineHeight: '17px' } },
+              h('span', { style: { color: 'var(--dsw-alias-label-primary)' } }, `${nextIndex + 1}. ${textOf(next?.action)}`),
+              next?.why ? h('span', { style: { color: 'var(--dsw-alias-label-tertiary)' } }, textOf(next.why)) : null,
+            )),
+          ) : null,
+          asList(item.report?.extra).length > 0 ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' } },
+            h('span', { style: { fontSize: '11px', fontWeight: 600, color: 'var(--dsw-alias-label-secondary)' } }, t('panel.extra')),
+            ...asList(item.report.extra).map((extra, extraIndex) => h('span', { key: `history-extra-${extraIndex}`, style: { fontSize: '11px', color: 'var(--dsw-alias-label-tertiary)' } }, `- ${textOf(extra)}`)),
+          ) : null,
+          h('div', { style: { display: 'flex', gap: '8px', marginTop: '6px' } },
             h('button', {
               type: 'button',
               style: { ...button, padding: '4px 10px', fontSize: '11px', background: 'var(--dsw-alias-state-success-primary)', color: 'white', borderColor: 'var(--dsw-alias-state-success-primary)' },
               onClick: () => void resumeTask(index + 1),
             }, t('panel.resumeTask')),
-            typeof openSession === 'function' ? h('button', {
-              type: 'button',
-              style: { ...button, padding: '4px 10px', fontSize: '11px' },
-              onClick: () => openSession({ sessions: [item.sessionId] }),
-            }, t('panel.openSession')) : null,
           ),
           ) : null,
           )
