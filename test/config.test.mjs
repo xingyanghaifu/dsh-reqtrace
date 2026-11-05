@@ -7,9 +7,11 @@ test('sanitizeConfig keeps defaults for unknown input', () => {
 })
 
 test('sanitizeConfig accepts autoAudit and clamps minToolCalls', () => {
-  assert.deepEqual(sanitizeConfig({ autoAudit: true, minToolCalls: 99 }), { autoAudit: true, autoExtract: false, strict: false, minToolCalls: 20 })
+  assert.deepEqual(sanitizeConfig({ autoAudit: true, minToolCalls: 99 }), { ...DEFAULT_CONFIG, autoAudit: true, minToolCalls: 20 })
+  assert.equal(sanitizeConfig({ auditMode: 'subagent' }).auditMode, 'subagent')
 })
 
 test('sanitizeConfig drops invalid values', () => {
-  assert.deepEqual(sanitizeConfig({ autoAudit: 'yes', minToolCalls: -1 }), { autoAudit: false, autoExtract: false, strict: false, minToolCalls: 1 })
+  assert.deepEqual(sanitizeConfig({ autoAudit: 'yes', minToolCalls: -1 }), { ...DEFAULT_CONFIG, autoAudit: false, minToolCalls: 1 })
+  assert.equal(sanitizeConfig({ auditMode: 'bogus' }).auditMode, 'direct')
 })

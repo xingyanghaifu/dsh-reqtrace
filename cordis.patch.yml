@@ -6,3 +6,4 @@
         autoExtract: false
         strict: false
         minToolCalls: 2
+        auditMode: direct

@@ -439,9 +439,9 @@ export function formatReport(report) {
 /** Reports are keyed by session + committed event sequence, so a re-open is free. */
 const auditCache = new Map()
 
-function auditKey(session, requirements = [], turn = undefined, childScope = '') {
+function auditKey(session, requirements = [], turn = undefined, childScope = '', mode = 'direct') {
   const scope = turn === undefined || turn === null ? String(session.seq ?? '') : `turn:${turn}`
-  return `${session.id}:${scope}:${childScope}:${requirements.join('\u0001')}`
+  return `${session.id}:${scope}:${childScope}:${mode}:${requirements.join('\u0001')}`
 }
 
 function rememberAudit(key, report) {
@@ -565,25 +565,57 @@ export async function auditSession(ctx, session, signal, options = {}) {
     ...childSessions.map((child) => `${child.id}:${String(child.seq ?? '')}`),
     ...childLedgers.map((child) => `${child.sessionId}:${String(child.at ?? '')}:${(child.requirements ?? []).join('\u0001')}`),
   ].join(',')
-  const key = auditKey(session, requirements, options.turn, childScope)
+  const mode = options.auditMode === 'subagent' ? 'subagent' : 'direct'
+  const key = auditKey(session, requirements, options.turn, childScope, mode)
   if (!options.force && auditCache.has(key)) return auditCache.get(key)
 
   const collected = collectEvidence(readEvents(session))
   if (collected.requests.length === 0) return '没有找到用户需求，无法对账。'
   const selected = ctx.get('agentDefaultModel')?.currentSelection()
   if (selected === undefined || selected === null) return '当前 profile 没有可用模型，无法生成需求对账单。'
+  const conflicts = findConflicts(collected, childCollected, childLedgers)
+  const prompt = buildAuditPrompt(collected, requirements, childCollected, childLedgers, conflicts)
+
+  if (mode === 'subagent') {
+    const subagents = ctx.get?.('subagents')
+    if (typeof subagents?.start === 'function') {
+      try {
+        const run = await subagents.start('spawn', {
+          prompt: `${SYSTEM}\n\n${prompt}`,
+          signal,
+        })
+        const result = await run.result
+        const text = typeof result === 'string'
+          ? result
+          : typeof result?.text === 'string'
+            ? result.text
+            : blocksText(result?.content)
+        if (text.trim() !== '') {
+          const report = parseReport(text)
+          enrichReportEvidence(report, collected)
+          if (result?.usage !== undefined) report.usage = result.usage
+          if (conflicts.length > 0) report.conflicts = conflicts
+          rememberAudit(key, report)
+          return report
+        }
+      } catch (error) {
+        try {
+          ctx.logger?.warn?.('reqtrace: subagent audit failed, falling back to direct call', error)
+        } catch { /* logging is optional */ }
+      }
+    }
+  }
+
   // Never read ctx.llm directly: Cordis throws when the service was not
   // declared in `inject`. `get()` is the optional lookup we want here.
   const llm = ctx.get('llm')
   if (llm === undefined) return '当前 profile 没有 LLM 服务，无法生成需求对账单。'
-
   const call = await llm.prepareCall({
     provider: selected.provider,
     model: selected.model,
     maxTokens: 1200,
   }, signal)
-  const conflicts = findConflicts(collected, childCollected, childLedgers)
-  const messages = [{ role: 'user', content: [{ type: 'text', text: buildAuditPrompt(collected, requirements, childCollected, childLedgers, conflicts) }] }]
+  const messages = [{ role: 'user', content: [{ type: 'text', text: prompt }] }]
   let text = ''
   let usage = null
   for await (const chunk of call.stream({ ...call.config, messages, system: SYSTEM, signal })) {

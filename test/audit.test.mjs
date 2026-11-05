@@ -40,6 +40,27 @@ test('readTodos returns the latest todo_write list with statuses', () => {
   ])
 })
 
+test('auditSession can delegate the review to a subagent', async () => {
+  const events = [{
+    type: 'user/message',
+    data: { content: [{ type: 'text', text: 'Add CSV export' }] },
+  }]
+  let started = null
+  const ctx = {
+    get(key) {
+      if (key === 'agentDefaultModel') return { currentSelection: () => ({ provider: 'test', model: 'test' }) }
+      if (key === 'subagents') return { start: async (name, request) => { started = { name, request }; return { result: Promise.resolve({ text: JSON.stringify({ verdict: 'done', next: [], missing: [], partial: [], done: [{ requirement: 'Add CSV export', evidence: 'export.ts' }], extra: [] }) }) } } }
+      if (key === 'llm') throw new Error('direct llm must not be used in subagent mode')
+      return undefined
+    },
+  }
+  const session = { id: 'subagent-audit', seq: 1, snapshotEvents: () => events }
+  const report = await auditSession(ctx, session, new AbortController().signal, { auditMode: 'subagent' })
+  assert.equal(report.done[0].requirement, 'Add CSV export')
+  assert.equal(started.name, 'spawn')
+  assert.match(started.request.prompt, /Add CSV export/)
+})
+
 test('collectEvidence separates requests, tool calls and final answer', () => {
   const result = collectEvidence(events)
   assert.deepEqual(result.requests, ['Add CSV export and keep the old API.'])

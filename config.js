@@ -3,6 +3,7 @@ export const DEFAULT_CONFIG = {
   autoExtract: false,
   strict: false,
   minToolCalls: 2,
+  auditMode: 'direct',
 }
 
 const clamp = (value, min, max, fallback) => {
@@ -18,6 +19,7 @@ export function sanitizeConfig(raw) {
   if (typeof input.autoAudit === 'boolean') config.autoAudit = input.autoAudit
   if (typeof input.autoExtract === 'boolean') config.autoExtract = input.autoExtract
   if (typeof input.strict === 'boolean') config.strict = input.strict
+  if (input.auditMode === 'subagent' || input.auditMode === 'direct') config.auditMode = input.auditMode
   config.minToolCalls = clamp(input.minToolCalls, 1, 20, config.minToolCalls)
   return config
 }

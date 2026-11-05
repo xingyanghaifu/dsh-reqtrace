@@ -244,7 +244,9 @@ export function apply(ctx) {
     if (ledger === undefined) return undefined
     try {
       const events = readEvents(session)
-      const latestUser = [...events].reverse().find((event) => event?.type === 'user/message' && (event.surfaceOp === undefined || event.surfaceOp === 'append'))
+      const latestUser = [...events].reverse().find((event) => event?.type === 'user/message'
+        && (event.surfaceOp === undefined || event.surfaceOp === 'append')
+        && (event.data?.source?.kind === undefined || event.data.source.kind === 'user'))
       const text = blocksText(latestUser?.data?.content)
       if (latestUser !== undefined && (typeof ledger.seq !== 'number' || latestUser.seq > ledger.seq) && shouldExtract(text)) {
         beginTask(session, text, latestUser.seq)
@@ -306,6 +308,7 @@ export function apply(ctx) {
     try {
       const report = await auditSession(ctx, session, new AbortController().signal, {
         turn,
+        auditMode: config.auditMode,
         requirements: currentTaskFor(session)?.requirements ?? [],
         childLedgers: childLedgersFor(session),
       })
@@ -330,6 +333,7 @@ export function apply(ctx) {
         return
       }
       if (event?.type === 'user/message') {
+        if (event.data?.source?.kind !== undefined && event.data.source.kind !== 'user') return
         if (config.autoExtract !== true || (event.surfaceOp !== undefined && event.surfaceOp !== 'append')) return
         const text = blocksText(event.data?.content)
         const titleFallback = typeof session.title === 'string' ? session.title : ''
@@ -383,6 +387,7 @@ export function apply(ctx) {
       if (session.header?.origin === 'subagent' || session.header?.parentSession !== undefined) return
       const report = await auditSession(ctx, session, new AbortController().signal, {
         turn,
+        auditMode: config.auditMode,
         requirements: currentTaskFor(session)?.requirements ?? [],
         childLedgers: childLedgersFor(session),
       })
@@ -397,7 +402,7 @@ export function apply(ctx) {
         id: randomUUID(),
         role: 'user',
         content: [{ type: 'text', text: `[需求对账] 还有明确需求没有完成：\n${lines.join('\n')}\n请先补齐并给出证据，再结束任务。` }],
-        source: { kind: 'user' },
+        source: { kind: 'plugin', plugin: 'dsh-reqtrace' },
       })
     })
   }, 'reqtrace: strict mode')
@@ -612,6 +617,7 @@ export function apply(ctx) {
         try {
           const report = await auditSession(ctx, session, request.signal, {
             force,
+            auditMode: config.auditMode,
             requirements: currentTaskFor(session)?.requirements ?? [],
             childLedgers: childLedgersFor(session),
           })
@@ -660,18 +666,24 @@ export function apply(ctx) {
           if (typeof invocation.agent?.steer !== 'function') return { kind: 'error', text: '当前会话不能接收补齐指令。' }
           try {
             const report = await auditSession(ctx, session, invocation.signal, {
+              auditMode: config.auditMode,
               requirements: currentTaskFor(session)?.requirements ?? [],
               childLedgers: childLedgersFor(session),
             })
             if (typeof report === 'string') return { kind: 'error', text: report }
             const items = [...(report.missing ?? []), ...(report.partial ?? [])]
             if (items.length === 0) return { kind: 'success', text: '没有需要补齐的明确需求。' }
+            const ledger = currentTaskFor(session)
+            const request = (ledger?.request ?? '').trim()
+            if (request === '' || request.startsWith('[需求对账]')) {
+              return { kind: 'error', text: '当前会话没有具体任务上下文，未发送补齐指令。' }
+            }
             const lines = items.slice(0, 5).map((item) => `- ${item.requirement}${item.missing ? `（还缺：${item.missing}）` : item.why ? `（${item.why}）` : ''}`)
             invocation.agent.steer({
               id: randomUUID(),
               role: 'user',
-              content: [{ type: 'text', text: `[需求对账] 请按当前任务补齐这些验收项，并给出可核对的证据：\n${lines.join('\n')}\n补齐后再结束任务。` }],
-              source: { kind: 'user' },
+              content: [{ type: 'text', text: `[需求对账] 原任务：\n${request.slice(0, 2000)}\n\n未完成项：\n${lines.join('\n')}\n\n只补齐以上未完成项，不要重做已完成部分。每项给出可核对的命令、文件或测试结果；补齐后再结束任务。` }],
+              source: { kind: 'plugin', plugin: 'dsh-reqtrace' },
             })
             rememberReport(session.id, report)
             return { kind: 'success', text: `已把 ${items.length} 条缺失/部分完成的需求发回当前任务。` }
@@ -700,6 +712,7 @@ export function apply(ctx) {
           const target = ctx.get('sessions')?.get?.(targetId)
           if (target === undefined) return { kind: 'error', text: `找不到会话：${targetId}` }
           const report = await auditSession(ctx, target, invocation.signal, {
+            auditMode: config.auditMode,
             requirements: taskLedgers.get(targetId)?.requirements ?? [],
             childLedgers: childLedgersFor(target),
           })
@@ -725,6 +738,7 @@ export function apply(ctx) {
         }
         try {
           const report = await auditSession(ctx, session, invocation.signal, {
+            auditMode: config.auditMode,
             requirements: currentTaskFor(session)?.requirements ?? [],
             childLedgers: childLedgersFor(session),
           })
