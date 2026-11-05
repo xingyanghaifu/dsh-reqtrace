@@ -414,6 +414,7 @@ window.__ModuleLoader__.load({
       const [error, setError] = React.useState('')
       const busyRef = React.useRef(false)
       const lastPendingTurn = React.useRef(null)
+      const ledgerBoxRef = React.useRef(null)
       const childBoxRef = React.useRef(null)
       const childRowRefs = React.useRef(new Map())
       const previousChildren = React.useRef(new Set())
@@ -519,7 +520,8 @@ window.__ModuleLoader__.load({
             flash(row, false)
             return
           }
-          const from = box.getBoundingClientRect()
+          const sourceBox = ledgerBoxRef.current !== null && ledger.length > 0 ? ledgerBoxRef.current : box
+          const from = sourceBox.getBoundingClientRect()
           const to = row.getBoundingClientRect()
           const ghostWidth = Math.min(240, Math.max(180, to.width))
           const startX = from.left + 10
@@ -698,6 +700,7 @@ window.__ModuleLoader__.load({
         ),
         error !== '' ? h('div', { style: { color: 'var(--dsw-alias-state-error-primary)', fontSize: '12px', lineHeight: '18px' } }, error) : null,
         true ? h('div', {
+          ref: ledgerBoxRef,
           style: { display: 'flex', flexDirection: 'column', gap: '5px', padding: '7px 9px', borderRadius: '9px', background: 'var(--dsw-alias-bg-layer-2)' },
         },
         h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
