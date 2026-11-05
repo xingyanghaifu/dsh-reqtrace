@@ -633,6 +633,7 @@ window.__ModuleLoader__.load({
       const [verifyCommand, setVerifyCommand] = React.useState('npm test')
       const [verifying, setVerifying] = React.useState(false)
       const [showActions, setShowActions] = React.useState(false)
+      const [showTodos, setShowTodos] = React.useState(false)
       const [copied, setCopied] = React.useState(false)
       const [exported, setExported] = React.useState(false)
       const [error, setError] = React.useState('')
@@ -1159,27 +1160,33 @@ window.__ModuleLoader__.load({
             display: 'flex',
             flexDirection: 'column',
             gap: '6px',
-            padding: '12px 14px',
+            padding: '10px 14px',
             borderRadius: '10px',
             background: 'var(--dsw-alias-bg-layer-2)',
             borderLeft: '2px solid var(--dsw-alias-state-business-primary)',
           },
         },
-        h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' } },
+        h('div', {
+          style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px', cursor: 'pointer' },
+          onClick: () => setShowTodos((value) => !value),
+        },
           h('strong', { style: { fontSize: '12px', lineHeight: '18px', color: 'var(--dsw-alias-label-secondary)', fontWeight: 600 } }, t('panel.todos')),
           h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: 'var(--dsw-alias-state-success-primary)' } },
             h('span', { style: { width: '5px', height: '5px', borderRadius: '50%', background: 'var(--dsw-alias-state-success-primary)' } }),
             t('panel.todosLive'),
           ),
           h('span', { style: { marginLeft: 'auto', fontSize: '11px', color: 'var(--dsw-alias-label-tertiary)' } }, `${todos.filter((todo) => todo.status === 'completed').length}/${todos.length}`),
+          h('span', { style: { fontSize: '12px', color: 'var(--dsw-alias-label-tertiary)' } }, todos.some((todo) => todo.status !== 'completed') || showTodos ? '▾' : '▸'),
         ),
-        ...todos.map((todo, index) => {
-          const mark = todoMark(todo.status)
-          return h('div', { key: `todo-${index}`, style: { display: 'flex', alignItems: 'baseline', gap: '8px', fontSize: '12px', lineHeight: '19px' } },
-            h('span', { style: { width: '14px', flex: 'none', color: mark.color, fontWeight: 700 } }, mark.text),
-            h('span', { style: { flex: 1, color: todo.status === 'completed' ? 'var(--dsw-alias-label-tertiary)' : 'var(--dsw-alias-label-primary)', textDecoration: todo.status === 'completed' ? 'line-through' : 'none' } }, textOf(todo.status === 'in_progress' && todo.activeForm !== '' ? todo.activeForm : todo.content)),
-          )
-        }),
+        todos.some((todo) => todo.status !== 'completed') || showTodos ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: '3px' } },
+          ...todos.map((todo, index) => {
+            const mark = todoMark(todo.status)
+            return h('div', { key: `todo-${index}`, style: { display: 'flex', alignItems: 'baseline', gap: '8px', fontSize: '12px', lineHeight: '19px' } },
+              h('span', { style: { width: '14px', flex: 'none', color: mark.color, fontWeight: 700 } }, mark.text),
+              h('span', { style: { flex: 1, color: todo.status === 'completed' ? 'var(--dsw-alias-label-tertiary)' : 'var(--dsw-alias-label-primary)', textDecoration: todo.status === 'completed' ? 'line-through' : 'none' } }, textOf(todo.status === 'in_progress' && todo.activeForm !== '' ? todo.activeForm : todo.content)),
+            )
+          }),
+        ) : null,
         ) : null,
         true ? h('div', {
           ref: ledgerBoxRef,
