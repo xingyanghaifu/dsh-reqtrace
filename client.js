@@ -371,7 +371,8 @@ window.__ModuleLoader__.load({
       const missing = (report.missing ?? []).filter((item) => !ignored.has(item.requirement))
       const partial = (report.partial ?? []).filter((item) => !ignored.has(item.requirement))
       const done = report.done ?? []
-      const total = missing.length + partial.length + done.length
+      const extra = report.extra ?? []
+      const counts = `${done.length} ${t('panel.done')} · ${partial.length} ${t('panel.partial')} · ${missing.length} ${t('panel.missing')} · ${extra.length} ${t('panel.extra')}`
       return h('div', { style: { display: 'flex', flexDirection: 'column', gap: '12px', overflow: 'auto', flex: 1, minHeight: 0 } },
         h('div', {
           style: {
@@ -385,7 +386,10 @@ window.__ModuleLoader__.load({
           },
         },
         h('span', { style: { fontSize: '11px', color: 'var(--dsw-alias-label-tertiary)' } }, t('panel.summary')),
-        h('strong', { style: { fontSize: '13px', color: 'var(--dsw-alias-label-primary)' } }, report.verdict || `${total} requirements checked`),
+        h('div', { style: { display: 'flex', flexDirection: 'column', gap: '1px', flex: 1, minWidth: 0 } },
+          h('strong', { style: { fontSize: '13px', color: 'var(--dsw-alias-label-primary)' } }, counts),
+          report.verdict ? h('span', { style: { fontSize: '10px', color: 'var(--dsw-alias-label-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, report.verdict) : null,
+        ),
         h('span', { style: { fontSize: '10px', color: 'var(--dsw-alias-label-tertiary)' } }, formatUsage(report.usage) === '' ? t('panel.noUsage') : formatUsage(report.usage)),
         ),
         h(ReportSection, {
