@@ -220,15 +220,16 @@ window.__ModuleLoader__.load({
     }
 
     const normalizeRequirement = (value) => String(value ?? '').replace(/\s+/g, '').toLowerCase()
+    const asList = (value) => Array.isArray(value) ? value : []
 
     function requirementStatus(report, text) {
       if (report === null || report === undefined || typeof report === 'string') return ''
       const wanted = normalizeRequirement(text)
       if (wanted === '') return ''
-      const buckets = [['done', report.done ?? []], ['partial', report.partial ?? []], ['missing', report.missing ?? []]]
+      const buckets = [['done', asList(report.done)], ['partial', asList(report.partial)], ['missing', asList(report.missing)]]
       for (const [status, items] of buckets) {
         for (const item of items) {
-          const candidate = normalizeRequirement(item.requirement)
+          const candidate = normalizeRequirement(item?.requirement)
           if (candidate === wanted || (candidate.length > 4 && wanted.length > 4 && (candidate.includes(wanted) || wanted.includes(candidate)))) return status
         }
       }
@@ -277,16 +278,18 @@ window.__ModuleLoader__.load({
     }
 
     function ReportSection({ t, title, color, items, render, onIgnore, onOpen }) {
-      if (items.length === 0) return null
+      const list = asList(items)
+      if (list.length === 0) return null
       return h('div', { style: { display: 'flex', flexDirection: 'column', gap: '5px' } },
         h('div', { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
           h('span', { style: { width: '7px', height: '7px', borderRadius: '50%', background: color, flex: 'none' } }),
-          h('strong', { style: { fontSize: '12px', lineHeight: '18px', color: 'var(--dsw-alias-label-primary)' } }, `${title} (${items.length})`),
+          h('strong', { style: { fontSize: '12px', lineHeight: '18px', color: 'var(--dsw-alias-label-primary)' } }, `${title} (${list.length})`),
         ),
-        ...items.map((item, index) => {
-          const view = render(item)
-          const hasTools = Array.isArray(item.tools) && item.tools.length > 0
-          const hasFiles = Array.isArray(item.files) && item.files.length > 0
+        ...list.map((item, index) => {
+          const entry = item !== null && typeof item === 'object' ? item : {}
+          const view = render(entry) ?? {}
+          const hasTools = Array.isArray(entry.tools) && entry.tools.length > 0
+          const hasFiles = Array.isArray(entry.files) && entry.files.length > 0
           return h('div', {
             key: `${title}-${index}`,
             style: {
@@ -306,16 +309,16 @@ window.__ModuleLoader__.load({
               style: { ...button, flex: 'none', padding: '1px 5px', fontSize: '10px', lineHeight: '15px' },
               onClick: () => onIgnore(view.title),
             }, t('panel.ignore')),
-            onOpen === undefined || item?.sessions?.length === undefined || item.sessions.length === 0 ? null : h('button', {
+            onOpen === undefined || entry.sessions?.length === undefined || entry.sessions.length === 0 ? null : h('button', {
               type: 'button',
               style: { ...button, flex: 'none', padding: '1px 5px', fontSize: '10px', lineHeight: '15px' },
-              onClick: () => onOpen(item),
+              onClick: () => onOpen(entry),
             }, t('panel.openSession')),
           ),
           view.detail === '' ? null : h('div', { style: { fontSize: '11px', lineHeight: '17px', color: 'var(--dsw-alias-label-tertiary)', overflowWrap: 'anywhere' } }, view.detail),
           hasTools ? h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' } },
             h('span', { style: { fontSize: '10px', color: 'var(--dsw-alias-label-quaternary)' } }, '🔧'),
-            ...item.tools.slice(0, 8).map((tool, ti) => 
+            ...entry.tools.slice(0, 8).map((tool, ti) => 
               h('span', {
                 key: `tool-${ti}`,
                 style: {
@@ -329,10 +332,10 @@ window.__ModuleLoader__.load({
                 },
               }, tool)
             ),
-            item.tools.length > 8 ? h('span', { style: { fontSize: '10px', color: 'var(--dsw-alias-label-quaternary)' } }, `+${item.tools.length - 8}`) : null,
+            entry.tools.length > 8 ? h('span', { style: { fontSize: '10px', color: 'var(--dsw-alias-label-quaternary)' } }, `+${entry.tools.length - 8}`) : null,
           ) : null,
           hasFiles ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: '2px' } },
-            ...item.files.slice(0, 5).map((file, fi) => 
+            ...entry.files.slice(0, 5).map((file, fi) => 
               h('div', {
                 key: `file-${fi}`,
                 style: {
@@ -345,7 +348,7 @@ window.__ModuleLoader__.load({
                 },
               }, `📄 ${file}`)
             ),
-            item.files.length > 5 ? h('div', { style: { fontSize: '10px', color: 'var(--dsw-alias-label-quaternary)', paddingLeft: '14px' } }, `... 还有 ${item.files.length - 5} 个文件`) : null,
+            entry.files.length > 5 ? h('div', { style: { fontSize: '10px', color: 'var(--dsw-alias-label-quaternary)', paddingLeft: '14px' } }, `... 还有 ${entry.files.length - 5} 个文件`) : null,
           ) : null,
           )
         }),
@@ -368,10 +371,10 @@ window.__ModuleLoader__.load({
       if (typeof report.raw === 'string' && report.raw !== '') {
         return h('pre', { style: reportStyle }, report.raw)
       }
-      const missing = (report.missing ?? []).filter((item) => !ignored.has(item.requirement))
-      const partial = (report.partial ?? []).filter((item) => !ignored.has(item.requirement))
-      const done = report.done ?? []
-      const extra = report.extra ?? []
+      const missing = asList(report.missing).filter((item) => !ignored.has(item?.requirement))
+      const partial = asList(report.partial).filter((item) => !ignored.has(item?.requirement))
+      const done = asList(report.done)
+      const extra = asList(report.extra)
       const counts = `${done.length} ${t('panel.done')} · ${partial.length} ${t('panel.partial')} · ${missing.length} ${t('panel.missing')} · ${extra.length} ${t('panel.extra')}`
       return h('div', { style: { display: 'flex', flexDirection: 'column', gap: '12px', overflow: 'auto', flex: 1, minHeight: 0 } },
         h('div', {
@@ -388,7 +391,7 @@ window.__ModuleLoader__.load({
         h('span', { style: { fontSize: '11px', color: 'var(--dsw-alias-label-tertiary)' } }, t('panel.summary')),
         h('div', { style: { display: 'flex', flexDirection: 'column', gap: '1px', flex: 1, minWidth: 0 } },
           h('strong', { style: { fontSize: '13px', color: 'var(--dsw-alias-label-primary)' } }, counts),
-          report.verdict ? h('span', { style: { fontSize: '10px', color: 'var(--dsw-alias-label-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, report.verdict) : null,
+          typeof report.verdict === 'string' && report.verdict !== '' ? h('span', { style: { fontSize: '10px', color: 'var(--dsw-alias-label-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, report.verdict) : null,
         ),
         h('span', { style: { fontSize: '10px', color: 'var(--dsw-alias-label-tertiary)' } }, formatUsage(report.usage) === '' ? t('panel.noUsage') : formatUsage(report.usage)),
         ),
@@ -396,7 +399,7 @@ window.__ModuleLoader__.load({
           t,
           title: t('panel.next'),
           color: 'var(--dsw-alias-state-business-primary)',
-          items: report.next ?? [],
+          items: asList(report.next),
           render: (item) => ({ title: item.action, detail: item.why }),
         }),
         h(ReportSection, {
@@ -426,14 +429,14 @@ window.__ModuleLoader__.load({
           t,
           title: t('panel.extra'),
           color: 'var(--dsw-alias-label-tertiary)',
-          items: report.extra ?? [],
+          items: extra,
           render: (item) => ({ title: item, detail: '' }),
         }),
         h(ReportSection, {
           t,
           title: t('panel.conflicts'),
           color: 'var(--dsw-alias-state-warn-primary)',
-          items: report.conflicts ?? [],
+          items: asList(report.conflicts),
           render: (item) => ({ title: typeof item === 'string' ? item : item.text, detail: '' }),
           onOpen: openSession,
         }),
