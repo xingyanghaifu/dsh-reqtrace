@@ -495,7 +495,16 @@ window.__ModuleLoader__.load({
         const reduced = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true
         let cancelled = false
 
-        const flash = (row) => {
+        const flash = (row, withRing = false) => {
+          if (withRing) {
+            const rect = row.getBoundingClientRect()
+            const ring = document.createElement('div')
+            ring.className = 'reqtrace-landing-ring'
+            ring.style.left = `${rect.left + rect.width / 2}px`
+            ring.style.top = `${rect.top + rect.height / 2}px`
+            document.body.append(ring)
+            ring.addEventListener('animationend', () => ring.remove(), { once: true })
+          }
           if (typeof row.animate !== 'function') return
           row.animate([
             { boxShadow: '0 0 0 0 rgba(98,168,255,.65)' },
@@ -507,7 +516,7 @@ window.__ModuleLoader__.load({
           const row = childRowRefs.current.get(child.sessionId)
           if (row === undefined) return
           if (reduced) {
-            flash(row)
+            flash(row, false)
             return
           }
           const from = box.getBoundingClientRect()
@@ -566,7 +575,7 @@ window.__ModuleLoader__.load({
             } else {
               ghost.remove()
               ghostCards.current = ghostCards.current.filter((item) => item !== ghost)
-              flash(row)
+              flash(row, true)
             }
           }
           globalThis.requestAnimationFrame(tick)
@@ -1081,6 +1090,8 @@ window.__ModuleLoader__.load({
             .reqtrace-child-row { position: relative; z-index: 1; }
             .reqtrace-ghost-card { position: fixed !important; left: 0 !important; top: 0 !important; margin: 0 !important; z-index: 9999; pointer-events: none; border: 1px solid #62a8ff !important; border-radius: 8px !important; background: #151a21 !important; color: #e3e9f2 !important; box-shadow: 0 14px 42px rgba(0,0,0,.55), 0 0 14px rgba(98,168,255,.22); will-change: transform, opacity; }
             .reqtrace-ghost-card span { color: #dce6f2 !important; }
+            .reqtrace-landing-ring { position: fixed; z-index: 9998; width: 44px; height: 44px; margin: -22px 0 0 -22px; border: 1px solid #62a8ff; border-radius: 50%; pointer-events: none; opacity: .8; transform: scale(.2); animation: reqtrace-landing .55s ease-out forwards; }
+            @keyframes reqtrace-landing { to { transform: scale(1); opacity: 0; } }
           `
           doc.head.append(style)
           return () => style.remove()
