@@ -241,6 +241,16 @@ window.__ModuleLoader__.load({
 
     const normalizeRequirement = (value) => String(value ?? '').replace(/\s+/g, '').toLowerCase()
     const asList = (value) => Array.isArray(value) ? value : []
+    const textOf = (value) => {
+      if (typeof value === 'string') return value
+      if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+      if (value === null || value === undefined) return ''
+      try {
+        return JSON.stringify(value)
+      } catch {
+        return String(value)
+      }
+    }
 
     function requirementStatus(report, text) {
       if (report === null || report === undefined || typeof report === 'string') return ''
@@ -339,7 +349,7 @@ window.__ModuleLoader__.load({
             },
           },
           h('div', { style: { display: 'flex', alignItems: 'flex-start', gap: '10px' } },
-            h('span', { style: { flex: 1, fontSize: '13px', lineHeight: '20px', color: 'var(--dsw-alias-label-primary)', overflowWrap: 'anywhere', fontWeight: 500 } }, view.title),
+            h('span', { style: { flex: 1, fontSize: '13px', lineHeight: '20px', color: 'var(--dsw-alias-label-primary)', overflowWrap: 'anywhere', fontWeight: 500 } }, textOf(view.title)),
             onIgnore === undefined ? null : h('button', {
               type: 'button',
               style: { 
@@ -382,7 +392,7 @@ window.__ModuleLoader__.load({
               onClick: () => onOpen(entry),
             }, t('panel.openSession')),
           ),
-          view.detail === '' ? null : h('div', { style: { fontSize: '12px', lineHeight: '18px', color: 'var(--dsw-alias-label-tertiary)', overflowWrap: 'anywhere' } }, view.detail),
+          textOf(view.detail) === '' ? null : h('div', { style: { fontSize: '12px', lineHeight: '18px', color: 'var(--dsw-alias-label-tertiary)', overflowWrap: 'anywhere' } }, textOf(view.detail)),
           hasTools ? h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' } },
             h('span', { style: { fontSize: '11px', color: 'var(--dsw-alias-label-quaternary)' } }, '🔧'),
             ...entry.tools.slice(0, 8).map((tool, ti) => 
@@ -398,7 +408,7 @@ window.__ModuleLoader__.load({
                   fontFamily: 'var(--ds-font-family-code)',
                   border: '.5px solid var(--dsw-alias-border-l2)',
                 },
-              }, tool)
+              }, textOf(tool))
             ),
             entry.tools.length > 8 ? h('span', { style: { fontSize: '11px', color: 'var(--dsw-alias-label-quaternary)' } }, `+${entry.tools.length - 8}`) : null,
           ) : null,
@@ -414,7 +424,7 @@ window.__ModuleLoader__.load({
                   paddingLeft: '18px',
                   overflowWrap: 'anywhere',
                 },
-              }, `📄 ${file}`)
+              }, `📄 ${textOf(file)}`)
             ),
             entry.files.length > 5 ? h('div', { style: { fontSize: '11px', color: 'var(--dsw-alias-label-quaternary)', paddingLeft: '18px' } }, `... 还有 ${entry.files.length - 5} 个文件`) : null,
           ) : null,
@@ -531,7 +541,7 @@ window.__ModuleLoader__.load({
           title: t('panel.extra'),
           color: 'var(--dsw-alias-label-tertiary)',
           items: extra,
-          render: (item) => ({ title: item, detail: '' }),
+          render: (item) => ({ title: textOf(item), detail: '' }),
         }),
         h(ReportSection, {
           t,
@@ -1024,7 +1034,7 @@ window.__ModuleLoader__.load({
           const mark = todoMark(todo.status)
           return h('div', { key: `todo-${index}`, style: { display: 'flex', alignItems: 'baseline', gap: '8px', fontSize: '12px', lineHeight: '19px' } },
             h('span', { style: { width: '14px', flex: 'none', color: mark.color, fontWeight: 700 } }, mark.text),
-            h('span', { style: { flex: 1, color: todo.status === 'completed' ? 'var(--dsw-alias-label-tertiary)' : 'var(--dsw-alias-label-primary)', textDecoration: todo.status === 'completed' ? 'line-through' : 'none' } }, todo.status === 'in_progress' && todo.activeForm !== '' ? todo.activeForm : todo.content),
+            h('span', { style: { flex: 1, color: todo.status === 'completed' ? 'var(--dsw-alias-label-tertiary)' : 'var(--dsw-alias-label-primary)', textDecoration: todo.status === 'completed' ? 'line-through' : 'none' } }, textOf(todo.status === 'in_progress' && todo.activeForm !== '' ? todo.activeForm : todo.content)),
           )
         }),
         ) : null,
