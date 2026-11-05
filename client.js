@@ -94,6 +94,9 @@ window.__ModuleLoader__.load({
       'panel.history': '历史任务',
       'panel.children': '子任务',
       'panel.resume': '继续',
+      'panel.resumeTask': '继续这个任务',
+      'panel.openHistory': '展开清单',
+      'panel.closeHistory': '收起清单',
       'panel.resumeSent': '已发送续接指令',
       'panel.resumeFailed': '续接失败',
       'panel.open': '需求对账',
@@ -172,6 +175,9 @@ window.__ModuleLoader__.load({
       'panel.history': 'Task history',
       'panel.children': 'Subagent tasks',
       'panel.resume': 'Continue',
+      'panel.resumeTask': 'Continue this task',
+      'panel.openHistory': 'Open checklist',
+      'panel.closeHistory': 'Collapse checklist',
       'panel.resumeSent': 'Continuation sent',
       'panel.resumeFailed': 'Continue failed',
       'panel.open': 'Requirement Trace',
@@ -609,6 +615,7 @@ window.__ModuleLoader__.load({
       const [showChildren, setShowChildren] = React.useState(true)
       const [flightRequest, setFlightRequest] = React.useState(0)
       const [showHistory, setShowHistory] = React.useState(false)
+      const [expandedHistory, setExpandedHistory] = React.useState('')
       const [notice, setNotice] = React.useState('')
       const [editing, setEditing] = React.useState(false)
       const [draft, setDraft] = React.useState([])
@@ -1584,48 +1591,69 @@ window.__ModuleLoader__.load({
         ),
         showHistory ? globalHistory.map((item, index) => {
           const requirements = item.requirements ?? []
+          const historyKey = String(item.id ?? `${item.sessionId}:${item.at ?? ''}`)
+          const expanded = expandedHistory === historyKey
           return h('div', {
             key: `history-task-${index}`,
-            style: { 
-              display: 'flex', 
-              alignItems: 'flex-start', 
-              gap: '8px', 
-              padding: '8px 10px', 
+            style: {
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+              padding: '8px 10px',
               borderTop: index === 0 ? 'none' : '.5px solid var(--dsw-alias-border-l2)',
               borderRadius: '8px',
               transition: 'all 0.15s ease',
+              cursor: 'pointer',
             },
             onMouseEnter: (e) => {
               e.currentTarget.style.background = 'var(--dsw-alias-bg-layer-3)'
             },
             onMouseLeave: (e) => {
-              e.currentTarget.style.background = 'transparent'
+              e.currentTarget.style.background = expanded ? 'var(--dsw-alias-bg-layer-2)' : 'transparent'
             },
+            onClick: () => setExpandedHistory(expanded ? '' : historyKey),
           },
-          h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '3px' } },
-            h('span', { style: { fontSize: '12px', color: 'var(--dsw-alias-label-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 } }, `${index + 1}. ${item.subagent || item.parentSessionId ? '↳ ' : ''}${item.title ?? item.sessionId} · ${requirements.length} 条${formatTime(item.at) === '' ? '' : ` · ${formatTime(item.at)}`}`),
-            h('span', { style: { fontSize: '11px', color: 'var(--dsw-alias-label-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, requirements.slice(0, 2).join(' / ')),
+          h('div', { style: { display: 'flex', alignItems: 'flex-start', gap: '8px' } },
+            h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '3px' } },
+              h('span', { style: { fontSize: '12px', color: 'var(--dsw-alias-label-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 } }, `${index + 1}. ${item.subagent || item.parentSessionId ? '↳ ' : ''}${item.title ?? item.sessionId} · ${requirements.length} 条${formatTime(item.at) === '' ? '' : ` · ${formatTime(item.at)}`}`),
+              h('span', { style: { fontSize: '11px', color: 'var(--dsw-alias-label-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, requirements.slice(0, 2).join(' / ')),
+            ),
+            h('span', { style: { flex: 'none', fontSize: '14px', color: 'var(--dsw-alias-label-tertiary)', padding: '0 2px' } }, expanded ? '▾' : '▸'),
           ),
-          h('button', { 
-            type: 'button', 
-            style: { 
-              ...button, 
-              flex: 'none', 
-              padding: '3px 10px', 
-              fontSize: '11px', 
-              lineHeight: '16px',
-              background: 'var(--dsw-alias-state-success-primary)',
-              color: 'white',
-              borderColor: 'var(--dsw-alias-state-success-primary)',
-            },
-            onMouseEnter: (e) => {
-              e.currentTarget.style.background = 'color-mix(in srgb, var(--dsw-alias-state-success-primary) 85%, black 15%)'
-            },
-            onMouseLeave: (e) => {
-              e.currentTarget.style.background = 'var(--dsw-alias-state-success-primary)'
-            },
-            onClick: () => void resumeTask(index + 1) 
-          }, t('panel.resume')),
+          expanded ? h('div', {
+            style: { display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '6px', paddingTop: '8px', borderTop: '.5px solid var(--dsw-alias-border-l2)' },
+            onClick: (event) => event.stopPropagation(),
+          },
+          typeof item.report?.verdict === 'string' && item.report.verdict !== ''
+            ? h('span', { style: { fontSize: '11px', color: 'var(--dsw-alias-label-tertiary)' } }, textOf(item.report.verdict))
+            : null,
+          requirements.length === 0
+            ? h('span', { style: { fontSize: '11px', color: 'var(--dsw-alias-label-tertiary)' } }, t('panel.ledgerEmpty'))
+            : requirements.map((requirement, requirementIndex) => {
+              const status = requirementStatus(item.report, requirement)
+              const mark = statusMark(status)
+              const evidence = requirementEvidence(item.report, requirement)
+              return h('div', { key: `history-requirement-${requirementIndex}`, style: { display: 'flex', alignItems: 'baseline', gap: '7px', fontSize: '12px', lineHeight: '19px' } },
+                h('span', { style: { width: '12px', flex: 'none', color: mark.color, fontWeight: 700 } }, mark.text),
+                h('span', { style: { flex: 1, minWidth: 0, color: 'var(--dsw-alias-label-primary)' } }, `${requirementIndex + 1}. ${textOf(requirement)}`),
+                evidence !== null && (evidence.tools.length > 0 || evidence.files.length > 0)
+                  ? h('span', { style: { fontSize: '10px', color: 'var(--dsw-alias-label-quaternary)', whiteSpace: 'nowrap' } }, `${evidence.tools.length} 工具 · ${evidence.files.length} 文件`)
+                  : null,
+              )
+            }),
+          h('div', { style: { display: 'flex', gap: '8px', marginTop: '4px' } },
+            h('button', {
+              type: 'button',
+              style: { ...button, padding: '4px 10px', fontSize: '11px', background: 'var(--dsw-alias-state-success-primary)', color: 'white', borderColor: 'var(--dsw-alias-state-success-primary)' },
+              onClick: () => void resumeTask(index + 1),
+            }, t('panel.resumeTask')),
+            typeof openSession === 'function' ? h('button', {
+              type: 'button',
+              style: { ...button, padding: '4px 10px', fontSize: '11px' },
+              onClick: () => openSession({ sessions: [item.sessionId] }),
+            }, t('panel.openSession')) : null,
+          ),
+          ) : null,
           )
         }) : null,
         ) : null,
