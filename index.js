@@ -12,6 +12,26 @@ import { dirname } from 'node:path'
 import { auditSession, blocksText, extractRequirements, formatReport, parseReport, readEvents, readTodos, shouldExtract } from './audit.js'
 import { DEFAULT_CONFIG, readConfig, writeConfig } from './config.js'
 
+/**
+ * Run one explicit verification command through DSH's tool pipeline.
+ * The caller supplies the tools service; tests can pass a mock.
+ */
+export async function executeVerification(tools, command, signal) {
+  if (typeof tools?.execute !== 'function') {
+    throw Object.assign(new Error('DSH tools service is not available'), { code: 'tools-unavailable' })
+  }
+  const result = await tools.execute({
+    callId: randomUUID(),
+    name: 'ops_bash',
+    arguments: { command, description: 'reqtrace requirement verification' },
+    signal,
+  })
+  const content = result?.content ?? result?.message?.content ?? result?.result?.content
+  const output = blocksText(content).slice(0, 8000) || (typeof result?.output === 'string' ? result.output.slice(0, 8000) : '')
+  const failed = result?.isError === true || result?.error !== undefined || result?.ok === false
+  return { passed: !failed, output, command }
+}
+
 export const name = 'reqtrace'
 // No hard service dependency: the command appears when `commands` is composed,
 // and the model/session lookups are optional at call time.
@@ -563,24 +583,16 @@ export function apply(ctx) {
           return Response.json({ ok: false, code: 'tools-unavailable', message: 'DSH tools service is not available' }, { status: 503 })
         }
         try {
-          const result = await tools.execute({
-            callId: randomUUID(),
-            name: 'ops_bash',
-            arguments: { command, description: 'reqtrace requirement verification' },
-            signal: request.signal,
-          })
-          const content = result?.content ?? result?.message?.content ?? result?.result?.content
-          const output = blocksText(content).slice(0, 8000) || (typeof result?.output === 'string' ? result.output.slice(0, 8000) : '')
-          const failed = result?.isError === true || result?.error !== undefined || result?.ok === false
+          const result = await executeVerification(tools, command, request.signal)
           const ledger = taskLedgers.get(sessionId)
           if (ledger !== undefined) {
             ledger.verifications = {
               ...(ledger.verifications ?? {}),
-              [requirement]: { command, ok: !failed, output, at: Date.now() },
+              [requirement]: { command, ok: result.passed, output: result.output, at: Date.now() },
             }
             await persistLedgers()
           }
-          return Response.json({ ok: true, result: { passed: !failed, command, output, at: Date.now() } }, { headers: { 'cache-control': 'no-store' } })
+          return Response.json({ ok: true, result: { ...result, at: Date.now() } }, { headers: { 'cache-control': 'no-store' } })
         } catch (error) {
           return Response.json({ ok: false, code: 'verify-failed', message: error?.message ?? String(error) }, { status: 500 })
         }
