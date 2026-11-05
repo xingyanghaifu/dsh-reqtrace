@@ -5,6 +5,29 @@ window.__ModuleLoader__.load({
     const h = React.createElement
     const NS = 'reqtrace'
 
+    const BIRD_SVG = `<svg viewBox="0 0 44 44" aria-hidden="true">
+      <path class="bird-body" fill="currentColor" d="M7 26c7-6 15-8 23-5 5 2 8 6 9 10-4-2-8-3-12-2-5 2-8 6-9 11-3-4-5-8-5-13-2 1-4 1-6 0z"/>
+      <path class="tail" fill="currentColor" d="M9 28 1 35l9-1 4-6z"/>
+      <path class="wing" fill="currentColor" d="M16 24C22 13 33 9 41 14c-4 2-7 6-8 11-6-3-11-2-17-1z"/>
+      <circle cx="34" cy="22" r="1.1" fill="#0a0d11"/>
+    </svg>`
+
+    function createBird() {
+      const bird = document.createElement('div')
+      bird.className = 'reqtrace-bird'
+      bird.setAttribute('aria-hidden', 'true')
+      bird.innerHTML = BIRD_SVG
+      return bird
+    }
+
+    function pulseTarget(target) {
+      if (typeof target.animate !== 'function') return
+      target.animate([
+        { boxShadow: '0 0 0 0 rgba(98,168,255,.65)' },
+        { boxShadow: '0 0 0 8px rgba(98,168,255,0)' },
+      ], { duration: 500, easing: 'ease-out' })
+    }
+
     const zh = {
       'panel.title': '需求对账',
       'panel.description': '逐条核对当前会话的需求、工具证据和最终答复。',
@@ -419,7 +442,7 @@ window.__ModuleLoader__.load({
       const childBoxRef = React.useRef(null)
       const childRowRefs = React.useRef(new Map())
       const previousChildren = React.useRef(new Set())
-      const ghostCards = React.useRef([])
+      const flyingBirds = React.useRef([])
 
       const run = React.useCallback(async (force = false) => {
         if (sessionId === undefined || sessionId === '') {
@@ -524,46 +547,25 @@ window.__ModuleLoader__.load({
           const sourceBox = ledgerBoxRef.current !== null && ledger.length > 0 ? ledgerBoxRef.current : box
           const from = sourceBox.getBoundingClientRect()
           const to = row.getBoundingClientRect()
-          const ghostWidth = Math.min(240, Math.max(180, to.width))
-          const startX = from.left + 10
-          const startY = from.top + 28
-          const endX = to.left + Math.max(0, (to.width - ghostWidth) / 2)
-          const endY = to.top
-          const ghost = row.cloneNode(true)
-          ghost.classList.add('reqtrace-ghost-card')
-          Object.assign(ghost.style, {
-            width: `${ghostWidth}px`,
-            height: '40px',
-            overflow: 'hidden',
-            whiteSpace: 'nowrap',
-            boxSizing: 'border-box',
-            background: '#151a21',
-            border: '1px solid #62a8ff',
-            borderRadius: '8px',
-            padding: '6px 10px',
-            color: '#e3e9f2',
-            boxShadow: '0 14px 42px rgba(0,0,0,.45), 0 0 14px rgba(98,168,255,.22)',
-            zIndex: '9999',
-            opacity: '1',
-            transform: `translate(${startX}px, ${startY}px)`,
-          })
-          document.body.append(ghost)
-          ghostCards.current.push(ghost)
+          const startX = from.left + 16
+          const startY = from.top + 16
+          const endX = to.left + Math.min(18, to.width / 2)
+          const endY = to.top + Math.min(18, to.height / 2)
+          const bird = createBird()
+          const dir = endX >= startX ? 1 : -1
+          bird.style.transform = `translate(${startX}px, ${startY}px) scaleX(${dir})`
+          document.body.append(bird)
+          flyingBirds.current.push(bird)
           const dx = endX - startX
           const dy = endY - startY
-          const c1 = {
-            x: startX + dx * 0.28 - dy * 0.1,
-            y: startY + dy * 0.28 + dx * 0.1,
-          }
-          const c2 = {
-            x: startX + dx * 0.72 - dy * 0.1,
-            y: startY + dy * 0.72 + dx * 0.1,
-          }
+          const lift = Math.min(58, Math.max(18, Math.hypot(dx, dy) * 0.22))
+          const c1 = { x: startX + dx * 0.3, y: Math.min(startY, endY) - lift }
+          const c2 = { x: startX + dx * 0.7, y: Math.min(startY, endY) - lift }
           const startedAt = performance.now()
-          const duration = 900
+          const duration = 850
           const tick = (now) => {
             if (cancelled) {
-              ghost.remove()
+              bird.remove()
               return
             }
             const t = Math.min(1, (now - startedAt) / duration)
@@ -571,13 +573,13 @@ window.__ModuleLoader__.load({
             const q = 1 - e
             const x = q ** 3 * startX + 3 * q ** 2 * e * c1.x + 3 * q * e ** 2 * c2.x + e ** 3 * endX
             const y = q ** 3 * startY + 3 * q ** 2 * e * c1.y + 3 * q * e ** 2 * c2.y + e ** 3 * endY
-            ghost.style.transform = `translate(${x}px, ${y}px) scale(${0.96 + 0.04 * e})`
-            ghost.style.opacity = String(1 - Math.max(0, (t - 0.82) / 0.18))
+            const scale = 0.82 + 0.18 * Math.sin(Math.PI * t)
+            bird.style.transform = `translate(${x}px, ${y}px) rotate(${(t - 0.5) * 12 * dir}deg) scaleX(${dir}) scale(${scale})`
             if (t < 1) {
               globalThis.requestAnimationFrame(tick)
             } else {
-              ghost.remove()
-              ghostCards.current = ghostCards.current.filter((item) => item !== ghost)
+              bird.remove()
+              flyingBirds.current = flyingBirds.current.filter((item) => item !== bird)
               flash(row, true)
             }
           }
@@ -597,14 +599,14 @@ window.__ModuleLoader__.load({
           cancelled = true
           if (typeof globalThis.cancelAnimationFrame === 'function') globalThis.cancelAnimationFrame(raf)
           for (const timer of timers) globalThis.clearTimeout(timer)
-          for (const ghost of ghostCards.current) ghost.remove()
-          ghostCards.current = []
+          for (const bird of flyingBirds.current) bird.remove()
+          flyingBirds.current = []
         }
       }, [children, showChildren, flightRequest])
 
       React.useEffect(() => () => {
-        for (const ghost of ghostCards.current) ghost.remove()
-        ghostCards.current = []
+        for (const bird of flyingBirds.current) bird.remove()
+        flyingBirds.current = []
       }, [])
 
       const copyReport = async () => {
@@ -649,44 +651,35 @@ window.__ModuleLoader__.load({
         }
         const from = source.getBoundingClientRect()
         const to = target.getBoundingClientRect()
-        const ghost = document.createElement('div')
-        ghost.textContent = '任务交接 · 卡片飞行'
-        Object.assign(ghost.style, {
-          position: 'fixed', left: '0', top: '0', width: '190px', height: '44px',
-          display: 'grid', placeItems: 'center', zIndex: '9999', pointerEvents: 'none',
-          background: '#151a21', border: '1px solid #62a8ff', borderRadius: '8px',
-          color: '#e3e9f2', font: '12px "Segoe UI", "Microsoft YaHei", sans-serif',
-          boxShadow: '0 14px 42px rgba(0,0,0,.55), 0 0 14px rgba(98,168,255,.22)',
-        })
-        const startX = from.left + 12
-        const startY = from.top + 12
-        const endX = to.left + 20
-        const endY = to.top + 10
-        ghost.style.transform = `translate(${startX}px, ${startY}px)`
-        document.body.append(ghost)
-        ghostCards.current.push(ghost)
+        const startX = from.left + 16
+        const startY = from.top + 16
+        const endX = to.left + 16
+        const endY = to.top + Math.min(18, to.height / 2)
+        const bird = createBird()
+        const dir = endX >= startX ? 1 : -1
+        bird.style.transform = `translate(${startX}px, ${startY}px) scaleX(${dir})`
+        document.body.append(bird)
+        flyingBirds.current.push(bird)
         const dx = endX - startX
         const dy = endY - startY
-        const c1 = { x: startX + dx * 0.28 - dy * 0.12, y: startY + dy * 0.28 + dx * 0.12 }
-        const c2 = { x: startX + dx * 0.72 - dy * 0.12, y: startY + dy * 0.72 + dx * 0.12 }
+        const lift = Math.min(58, Math.max(18, Math.hypot(dx, dy) * 0.22))
+        const c1 = { x: startX + dx * 0.3, y: Math.min(startY, endY) - lift }
+        const c2 = { x: startX + dx * 0.7, y: Math.min(startY, endY) - lift }
         const startedAt = performance.now()
         const tick = (now) => {
-          const t = Math.min(1, (now - startedAt) / 900)
+          const t = Math.min(1, (now - startedAt) / 850)
           const e = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2
           const q = 1 - e
           const x = q ** 3 * startX + 3 * q ** 2 * e * c1.x + 3 * q * e ** 2 * c2.x + e ** 3 * endX
           const y = q ** 3 * startY + 3 * q ** 2 * e * c1.y + 3 * q * e ** 2 * c2.y + e ** 3 * endY
-          ghost.style.transform = `translate(${x}px, ${y}px) scale(${0.96 + 0.04 * e})`
-          ghost.style.opacity = String(1 - Math.max(0, (t - 0.82) / 0.18))
+          const scale = 0.82 + 0.18 * Math.sin(Math.PI * t)
+          bird.style.transform = `translate(${x}px, ${y}px) rotate(${(t - 0.5) * 12 * dir}deg) scaleX(${dir}) scale(${scale})`
           if (t < 1) {
             globalThis.requestAnimationFrame(tick)
           } else {
-            ghost.remove()
-            ghostCards.current = ghostCards.current.filter((item) => item !== ghost)
-            target.animate([
-              { boxShadow: '0 0 0 0 rgba(98,168,255,.7)' },
-              { boxShadow: '0 0 0 8px rgba(98,168,255,0)' },
-            ], { duration: 500, easing: 'ease-out' })
+            bird.remove()
+            flyingBirds.current = flyingBirds.current.filter((item) => item !== bird)
+            pulseTarget(target)
           }
         }
         globalThis.requestAnimationFrame(tick)
@@ -743,11 +736,11 @@ window.__ModuleLoader__.load({
           h('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', flex: 'none', alignSelf: 'center' } },
             h('button', {
               type: 'button',
-              title: '播放卡片飞行动画',
-              'aria-label': '播放卡片飞行动画',
+              title: '播放喜鹊飞行动画',
+              'aria-label': '播放喜鹊飞行动画',
               style: { ...button, flex: 'none', height: '24px', minHeight: '24px', padding: '2px 8px', fontSize: '11px', lineHeight: '16px' },
               onClick: playDemoFlight,
-            }, '▶ 动画'),
+            }, '▶ 喜鹊'),
             report !== null ? h('button', {
               style: { ...button, flex: 'none', height: '24px', minHeight: '24px', padding: '2px 8px', fontSize: '11px', lineHeight: '16px' },
               onClick: () => void copyReport(),
@@ -843,8 +836,8 @@ window.__ModuleLoader__.load({
           }, `${t('panel.children')} (${children.length})`),
           showChildren ? h('button', {
             type: 'button',
-            title: '重播卡片飞行',
-            'aria-label': '重播卡片飞行',
+            title: '重播喜鹊飞行',
+            'aria-label': '重播喜鹊飞行',
             style: { ...button, flex: 'none', padding: '1px 5px', fontSize: '10px', lineHeight: '15px' },
             onClick: () => {
               previousChildren.current = new Set()
@@ -1158,14 +1151,19 @@ window.__ModuleLoader__.load({
           style.textContent = `
             .reqtrace-children { position: relative; }
             .reqtrace-child-row { position: relative; z-index: 1; }
-            .reqtrace-ghost-card { position: fixed !important; left: 0 !important; top: 0 !important; margin: 0 !important; z-index: 9999; pointer-events: none; border: 1px solid #62a8ff !important; border-radius: 8px !important; background: #151a21 !important; color: #e3e9f2 !important; box-shadow: 0 14px 42px rgba(0,0,0,.55), 0 0 14px rgba(98,168,255,.22); will-change: transform, opacity; }
-            .reqtrace-ghost-card span { color: #dce6f2 !important; }
+            .reqtrace-bird { position: fixed; left: 0; top: 0; width: 34px; height: 34px; z-index: 9999; pointer-events: none; color: #dce6f2; filter: drop-shadow(0 2px 5px rgba(0,0,0,.5)); will-change: transform; }
+            .reqtrace-bird svg { display: block; width: 100%; height: 100%; overflow: visible; }
+            .reqtrace-bird .wing { transform-box: view-box; transform-origin: 30px 18px; animation: reqtrace-wing .16s ease-in-out infinite alternate; }
+            .reqtrace-bird .tail { transform-box: view-box; transform-origin: 10px 28px; animation: reqtrace-tail .5s ease-in-out infinite alternate; }
+            @keyframes reqtrace-wing { from { transform: rotate(-22deg); } to { transform: rotate(18deg); } }
+            @keyframes reqtrace-tail { from { transform: rotate(-8deg); } to { transform: rotate(6deg); } }
+            @media (prefers-reduced-motion: reduce) { .reqtrace-bird .wing, .reqtrace-bird .tail { animation: none; } }
             .reqtrace-landing-ring { position: fixed; z-index: 9998; width: 44px; height: 44px; margin: -22px 0 0 -22px; border: 1px solid #62a8ff; border-radius: 50%; pointer-events: none; opacity: .8; transform: scale(.2); animation: reqtrace-landing .55s ease-out forwards; }
             @keyframes reqtrace-landing { to { transform: scale(1); opacity: 0; } }
           `
           doc.head.append(style)
           return () => style.remove()
-        }, 'reqtrace: trail styles')
+        }, 'reqtrace: flight styles')
         ctx.slots.inject('settings.section', () => ctx.slots.register({
           name: 'settings.section',
           id: 'reqtrace',
