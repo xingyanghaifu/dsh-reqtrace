@@ -71,6 +71,12 @@ test('collectEvidence separates requests, tool calls and final answer', () => {
   assert.equal(result.finalAnswer, 'Implemented CSV export.')
 })
 
+test('parseReport repairs unescaped Windows paths', () => {
+  const raw = '{"verdict":"1 missing","next":[],"missing":[{"requirement":"Check file","why":"E:\\dshwork\\dsh-ponytail\\index.js"}],"partial":[],"done":[],"extra":[]}'
+  const report = parseReport(raw)
+  assert.equal(report.missing[0].why, 'E:\\dshwork\\dsh-ponytail\\index.js')
+})
+
 test('parseReport repairs unescaped quotes inside string values', () => {
   const raw = '```json\n{"verdict":"1 missing","next":[],"missing":[{"requirement":"明确"哪呢？"的上下文","why":"缺少前文"}],"partial":[],"done":[],"extra":[]}\n```'
   const report = parseReport(raw)

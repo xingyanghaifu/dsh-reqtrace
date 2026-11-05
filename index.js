@@ -161,7 +161,7 @@ export function apply(ctx) {
         const stored = JSON.parse(await readFile(ledgerFile, 'utf8'))
         for (const [id, ledger] of Object.entries(stored)) {
           if (ledger === null || typeof ledger !== 'object' || !Array.isArray(ledger.requirements)) continue
-          if (ledger.report?.raw !== undefined && (ledger.report.missing?.length ?? 0) === 0 && (ledger.report.partial?.length ?? 0) === 0 && (ledger.report.done?.length ?? 0) === 0) {
+          if (typeof ledger.report?.raw === 'string' && ledger.report.raw !== '') {
             const repaired = parseReport(ledger.report.raw)
             if (repaired.raw === undefined) ledger.report = { ...repaired, usage: ledger.report.usage }
           }

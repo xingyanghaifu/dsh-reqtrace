@@ -373,12 +373,49 @@ function repairUnescapedQuotes(text) {
   return out
 }
 
-function parseJsonObject(text) {
-  try {
-    return JSON.parse(text)
-  } catch {
-    return JSON.parse(repairUnescapedQuotes(text))
+/** Repair invalid JSON escapes, especially Windows paths like E:\dshwork. */
+function repairInvalidEscapes(text) {
+  let out = ''
+  let inString = false
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index]
+    if (char === '"') {
+      inString = !inString
+      out += char
+      continue
+    }
+    if (inString && char === '\\') {
+      const next = text[index + 1]
+      const unicode = next === 'u' && /^[0-9a-fA-F]{4}$/.test(text.slice(index + 2, index + 6))
+      if (next !== undefined && ('"\\/bfnrt'.includes(next) || unicode)) {
+        out += `\\${next}`
+        index += 1
+      } else {
+        out += '\\\\'
+      }
+      continue
+    }
+    if (inString && (char === '\n' || char === '\r')) {
+      out += '\\n'
+      continue
+    }
+    out += char
   }
+  return out
+}
+
+function parseJsonObject(text) {
+  const candidates = [
+    text,
+    repairUnescapedQuotes(text),
+    repairInvalidEscapes(repairUnescapedQuotes(text)),
+  ]
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate)
+    } catch { /* try the next repair */ }
+  }
+  throw new Error('invalid-json')
 }
 
 /** Normalize one model answer into the compact shape the UI renders. */
