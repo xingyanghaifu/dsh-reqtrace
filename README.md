@@ -2,20 +2,46 @@
 
 [![test](https://github.com/xingyanghaifu/dsh-reqtrace/actions/workflows/test.yml/badge.svg)](https://github.com/xingyanghaifu/dsh-reqtrace/actions/workflows/test.yml)
 
-Requirement-to-evidence audit for a DSH session.
+[English](README.md) · [中文](README.zh-CN.md)
 
-Use `/reqtrace` in a session, or click the small document icon next to the
-permission dropdown to open the right-sidebar panel. The plugin reads the
-session log, extracts the user's requirements, maps them to tool calls/results
-and shows a compact audit:
+Requirement-to-evidence audit for a DSH session: check what the agent claims
+against what it actually did, turn gaps into an explicit follow-up, and keep the
+evidence with the task.
 
-- **结论**: how many requirements are done/partial/missing;
-- **需要你处理**: missing and partial items with a short reason;
-- **已完成**: done items with one line of evidence;
-- **超出范围**: changes that do not map to a requirement.
+Open the panel from the small document icon next to the permission dropdown, or
+run `/reqtrace` in a session.
 
-The plugin only reads and reports; it never edits files, approves tools or
-changes the session.
+## What it does
+
+- **Live task list** — reads the agent's latest `todo_write` list every 2 seconds
+  and shows pending / in-progress / completed steps without a model call. The
+  list collapses when everything is done.
+- **Checklist** — extracts 3–8 acceptance items from the current user request,
+  or lets you edit them by hand.
+- **Evidence mapping** — maps each requirement to the tool calls, files, and
+  commands that actually appeared in the session log.
+- **Subagent coverage** — parent audits include live and archived descendant
+  sessions, child checklists, and warnings when two sessions touched the same
+  file or edited it differently.
+- **Per-requirement verification** — enter a command such as `npm test`; it runs
+  through DSH's `ops_bash` tool and the result is stored with the ledger and
+  shown as ✓ / ×. Nothing runs automatically.
+- **Close the loop** — missing or partial items can be sent back to the agent as
+  a precise follow-up (`Fix with evidence`). The follow-up includes the original
+  task and the exact gaps.
+- **History first, resume later** — clicking a historical task expands its
+  checklist and evidence. It does not message the current agent or switch
+  sessions. `Continue this task` is a separate, explicit action.
+- **Reports** — export JSON or Markdown, including requirements, evidence,
+  tool commands, verification results, and child tasks.
+- **Audit modes** — direct model call (default, fast) or optional subagent
+  review (`spawn`, isolated but slower and more expensive).
+- **Strict mode** — optionally steer the agent when a clear requirement is still
+  missing at turn end.
+
+The plugin does not edit files, approve tools, or change the session on its own.
+The only state it writes is its local ledger and the explicit follow-up/verify
+actions you trigger.
 
 ## Install
 
@@ -31,88 +57,83 @@ From a local checkout:
 dsh plugin --profile web add E:\dshwork\dsh-reqtrace
 ```
 
-Or use the local profile patch in a test profile.
+Requires DSH `>=0.2.1-rc.1 <0.3.0` and Node.js `^22.19` or `>=24`.
 
-## Clean-room check
+## Usage
 
-Verified in a fresh `DSH_HOME` with DSH `0.2.1-rc.5`:
+1. Open `需求对账 / Requirement Trace` in the right sidebar.
+2. If the checklist is empty, use **Extract checklist** (costs tokens).
+3. Review the evidence under each requirement. Hover a command to see its
+   target; hover a verification badge to see its output.
+4. For a missing item, click **Verify**, enter a command, and run it. The result
+   is saved.
+5. To make the agent finish a gap, click **Ask Agent to finish**. To see old
+   work, expand any item under **Task history**.
 
-- profile composes `dsh-reqtrace`;
-- page boot payload contains the `dsh-reqtrace` client entry;
-- client bundle returns 200;
-- `/api/reqtrace.audit?sessionId=missing` returns the expected `404 session-not-found`, proving the host route is mounted.
+### Commands
 
-## Test
+The panel is the primary UI; commands are optional:
 
-```bash
-node --test --test-isolation=none test/*.test.mjs
+```text
+/reqtrace                 audit the current session
+/reqtrace history         print recent task ledgers
+/reqtrace resume          list resumable tasks
+/reqtrace resume <n>      hand a historical checklist to the current agent
+/reqtrace clear           clear the current session ledger
+/reqtrace clear all       clear all saved ledgers
 ```
-
-26 tests: evidence collection, prompt building (including checklist order,
-subagent evidence, child checklists and conflict warnings), archived-child
-session-query loading, new-task archiving, unescaped-quote JSON repair, JSON report
-parsing/formatting, requirement extraction, continuation filtering, command
-registration, sidebar/tab/button registration, pending-task badge, config
-sanitization, strict-mode steering, resume handoff formatting, token usage
-capture, session-map bounds, and content-level conflict detection.
 
 ## Settings
 
-`Settings → 需求对账` controls:
+`Settings → 需求对账`:
 
-- **结束自动审计**: when enabled, a model audit runs automatically after a turn
-  that reaches the minimum tool-call count; this costs tokens.
-- **任务开始时提取验收清单**: when enabled, the user message is turned into a
-  short checklist before work starts; this also costs tokens.
-- **严格模式**: when a clear requirement is missing, steer the agent to keep
-  working instead of ending the turn.
-- **至少工具调用次数**: short tasks below this count do not trigger the reminder.
+| Setting | Default | Meaning |
+|---|---|---|
+| Auto-audit on turn end | off | Run an audit automatically after a task. Costs tokens. |
+| Extract checklist at task start | off | Turn the user message into acceptance items. Costs tokens. |
+| Strict mode | off | Steer the agent when a clear requirement is missing. |
+| Minimum tool calls | 2 | Shorter tasks do not trigger the reminder. |
+| Audit mode | direct | `direct` or `subagent` independent review. |
 
-Both model features default off, so a fresh install only shows the small pending
-dot and never calls a model until you open the panel.
+## Data and privacy
 
-## Notes
+- Ledgers are stored locally at `$DSH_HOME/reqtrace/ledgers.json`.
+- At most 200 sessions stay in memory; the latest 100 are persisted.
+- No telemetry, no upload; the only network calls are the model calls and any
+  verification command you explicitly run (through the DSH tool pipeline).
+- Audit and extraction use the configured `agentDefaultModel`; token usage is
+  shown when the provider reports it.
+- Verification commands run with the same DSH tool policy/approval path as the
+  agent; they are never started automatically.
 
-- The right-sidebar panel and the `/reqtrace` command share the same host audit.
-- After a completed turn with at least two tool calls, the composer icon gets a
-  small dot; opening the panel runs the audit and clears it.
-- Task ledgers are capped at 200 sessions in memory and the latest 100 are
-  written to `$DSH_HOME/reqtrace/ledgers.json`; the Settings page lists the
-  recent ones (click a row to expand all items) and `/reqtrace history` prints
-  them in the chat. `/reqtrace resume` lists tasks and
-`/reqtrace resume <n>` hands the selected checklist and statuses to the current
-conversation as a new “continue this task” instruction. The sidebar’s
-“历史任务” section also has a per-task **继续** button for the same handoff.
-- Starting a new task in the same session archives the previous checklist under
-  `历史任务` in the panel; each task keeps its last-updated time.
-- History can be cleared per task (Settings row), per session (`/reqtrace clear`)
-  or entirely (Settings “清除全部历史清单” / `/reqtrace clear all`).
-- The checklist can be edited, added to, or trimmed in the panel; saving it
-  makes the next audit use those items as the source of truth.
-- Each audit/extraction records provider token usage when the model reports it;
-  the panel shows it under the verdict and next to the checklist header.
-- In the panel, `Ctrl/Cmd+Enter` forces a fresh audit; the history ledger list is
-  cached and invalidated whenever the saved data changes.
-- Parent audits include live and archived descendant evidence, child checklists,
-  and warnings when two sessions touched the same file or edited it with
-  different content, or duplicated a child requirement; the panel lists child
-  task status and can open the child session when the workspace service exposes
-  it. Child ledgers are marked with `↳` in history. Strict mode is root-session
-  only.
-- New child tasks and a changed audit report are announced by a small flapping
-  magpie that flies from the parent checklist to the target row/report; the
-  target itself never moves except for a short landing dip. The effect is
-  skipped under `prefers-reduced-motion`.
-- The panel reads the agent's live `todo_write` list every 2 seconds and shows
-  the current task status without a model call.
-- Each checklist row exposes a per-requirement **Verify** action: the user enters
-  a command (for example `npm test`), it runs through DSH's `ops_bash` tool, and
-  the exit status/output is stored with the ledger and shown as ✓ / ×.
-- The overflow menu exports the report as JSON or Markdown, including per-item
-  tools, files, verification status, and child tasks.
-- While the panel is open it checks for a newly finished task every 4 seconds;
-  checklist rows show ✓ / ! / × once the matching report is available.
-- Missing/partial report items can be hidden with the per-item “忽略” button.
-- Requires a configured model (`agentDefaultModel`) for the audit call.
-- The audit is conservative: a claim in the final answer without tool evidence is
-  shown as `missing`, not trusted.
+## Development
+
+```bash
+node --test test/*.test.mjs
+```
+
+33 tests cover evidence collection, prompt construction, JSON repair (including
+truncated reports and unescaped Windows paths), todo reading, subagent audit
+mode, config sanitization, command registration, strict steering, verification
+execution, and UI registration.
+
+Clean-room checklist for DSH `0.2.1-rc.5`:
+
+- profile composes `dsh-reqtrace`;
+- boot payload contains the client entry;
+- client bundle returns 200;
+- `/api/reqtrace.audit?sessionId=missing` returns `404 session-not-found`.
+
+## Limitations
+
+- The audit is a model judgment over session evidence; a claim without evidence
+  is reported as missing rather than trusted.
+- Verification is per-requirement and user-triggered; it does not magically
+  discover the right command or map test results to requirements.
+- Subagent audit requires a working `spawn` provider; if it is unavailable the
+  plugin falls back to a direct call.
+- This is an early plugin. The ledger schema and UI may change.
+
+## License
+
+MIT.
