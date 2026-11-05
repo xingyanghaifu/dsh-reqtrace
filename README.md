@@ -101,9 +101,15 @@ conversation as a new “continue this task” instruction. The sidebar’s
   only.
 - New child tasks and a changed audit report are announced by a small flapping
   magpie that flies from the parent checklist to the target row/report; the
-  target itself never moves except for a short landing dip. The header ▶ button
-  replays the flight on demand. The effect is skipped under
-  `prefers-reduced-motion`.
+  target itself never moves except for a short landing dip. The effect is
+  skipped under `prefers-reduced-motion`.
+- The panel reads the agent's live `todo_write` list every 2 seconds and shows
+  the current task status without a model call.
+- Each checklist row exposes a per-requirement **Verify** action: the user enters
+  a command (for example `npm test`), it runs through DSH's `ops_bash` tool, and
+  the exit status/output is stored with the ledger and shown as ✓ / ×.
+- The overflow menu exports the report as JSON or Markdown, including per-item
+  tools, files, verification status, and child tasks.
 - While the panel is open it checks for a newly finished task every 4 seconds;
   checklist rows show ✓ / ! / × once the matching report is available.
 - Missing/partial report items can be hidden with the per-item “忽略” button.
