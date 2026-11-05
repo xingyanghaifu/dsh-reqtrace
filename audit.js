@@ -62,6 +62,42 @@ export function readEvents(session) {
 }
 
 /**
+ * Read the latest todo_write task list from a session log.
+ * Pure data only; no model call.
+ */
+export function readTodos(events) {
+  let latest = { todos: [], seq: null }
+  for (const event of events ?? []) {
+    if (event?.type !== 'tool/call') continue
+    const name = String(event.data?.name ?? '').toLowerCase()
+    if (name !== 'todo_write' && name !== 'todowrite') continue
+    let args = {}
+    try {
+      args = JSON.parse(event.data?.arguments ?? '{}')
+    } catch {
+      continue
+    }
+    const list = Array.isArray(args?.todos) ? args.todos : (Array.isArray(args?.items) ? args.items : [])
+    const todos = []
+    for (const item of list) {
+      const content = String(item?.content ?? item?.task ?? item?.title ?? item?.text ?? '').trim()
+      if (content === '') continue
+      const raw = String(item?.status ?? '').toLowerCase()
+      const status = raw === 'completed' || raw === 'done'
+        ? 'completed'
+        : (raw === 'in_progress' || raw === 'running' || raw === 'active' ? 'in_progress' : 'pending')
+      todos.push({
+        content,
+        status,
+        activeForm: typeof item?.activeForm === 'string' ? item.activeForm : '',
+      })
+    }
+    latest = { todos, seq: event.seq ?? null }
+  }
+  return latest
+}
+
+/**
  * Split a session log into user requests, tool evidence and the final answer.
  * Pure data only; no model call.
  */

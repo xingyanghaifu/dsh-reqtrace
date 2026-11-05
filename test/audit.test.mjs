@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { auditSession, buildAuditPrompt, collectEvidence, extractRequirements, findConflicts, formatReport, parseReport, readEvents, shouldExtract } from '../audit.js'
+import { auditSession, buildAuditPrompt, collectEvidence, extractRequirements, findConflicts, formatReport, parseReport, readEvents, readTodos, shouldExtract } from '../audit.js'
 
 const events = [
   {
@@ -20,6 +20,25 @@ const events = [
     data: { message: { content: [{ type: 'text', text: 'Implemented CSV export.' }] } },
   },
 ]
+
+test('readTodos returns the latest todo_write list with statuses', () => {
+  const result = readTodos([
+    { type: 'tool/call', seq: 3, data: { name: 'todo_write', arguments: JSON.stringify({ todos: [
+      { content: 'Read the code', status: 'completed' },
+      { content: 'Write the fix', status: 'in_progress', activeForm: 'Writing the fix' },
+      { content: 'Run tests', status: 'pending' },
+    ] }) } },
+    { type: 'tool/call', seq: 7, data: { name: 'todo_write', arguments: JSON.stringify({ todos: [
+      { content: 'Write the fix', status: 'completed' },
+      { content: 'Run tests', status: 'in_progress' },
+    ] }) } },
+  ])
+  assert.equal(result.seq, 7)
+  assert.deepEqual(result.todos, [
+    { content: 'Write the fix', status: 'completed', activeForm: '' },
+    { content: 'Run tests', status: 'in_progress', activeForm: '' },
+  ])
+})
 
 test('collectEvidence separates requests, tool calls and final answer', () => {
   const result = collectEvidence(events)

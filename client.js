@@ -67,6 +67,9 @@ window.__ModuleLoader__.load({
       'panel.fixSent': '已发送补齐指令',
       'panel.extract': '提取验收清单',
       'panel.extracting': '提取中…',
+      'panel.todos': 'Agent 任务清单',
+      'panel.todosLive': '实时',
+      'panel.todosEmpty': 'Agent 还没有创建任务清单。',
       'panel.noUsage': '模型未返回 token 用量',
       'panel.pendingTitle': '有新的任务待检查',
       'panel.ledger': '本次任务清单',
@@ -130,6 +133,9 @@ window.__ModuleLoader__.load({
       'panel.fixSent': 'Fix request sent',
       'panel.extract': 'Extract checklist',
       'panel.extracting': 'Extracting…',
+      'panel.todos': 'Agent task list',
+      'panel.todosLive': 'live',
+      'panel.todosEmpty': 'The agent has not created a task list yet.',
       'panel.noUsage': 'Model did not report token usage',
       'panel.pendingTitle': 'A new task is ready for audit',
       'panel.ledger': 'Task checklist',
@@ -255,6 +261,12 @@ window.__ModuleLoader__.load({
       if (status === 'partial') return { text: '!', color: 'var(--dsw-alias-state-warn-primary)' }
       if (status === 'missing') return { text: '×', color: 'var(--dsw-alias-state-error-primary)' }
       return { text: '·', color: 'var(--dsw-alias-label-tertiary)' }
+    }
+
+    function todoMark(status) {
+      if (status === 'completed') return { text: '✓', color: 'var(--dsw-alias-state-success-primary)' }
+      if (status === 'in_progress') return { text: '◐', color: 'var(--dsw-alias-state-business-primary)' }
+      return { text: '○', color: 'var(--dsw-alias-label-tertiary)' }
     }
 
     function formatTime(value) {
@@ -540,6 +552,7 @@ window.__ModuleLoader__.load({
       const [extractionUsage, setExtractionUsage] = React.useState(null)
       const [globalHistory, setGlobalHistory] = React.useState([])
       const [children, setChildren] = React.useState([])
+      const [todos, setTodos] = React.useState([])
       const [showChildren, setShowChildren] = React.useState(true)
       const [flightRequest, setFlightRequest] = React.useState(0)
       const [showHistory, setShowHistory] = React.useState(false)
@@ -573,10 +586,11 @@ window.__ModuleLoader__.load({
         setError('')
         try {
           const suffix = force ? '&refresh=1' : ''
-          const [ledgerResult, globalResult, childResult] = await Promise.all([
+          const [ledgerResult, globalResult, childResult, todoResult] = await Promise.all([
             api(`/api/reqtrace.ledger?sessionId=${encodeURIComponent(sessionId)}`).catch(() => ({})),
             api('/api/reqtrace.ledgers').catch(() => ({ ledgers: [] })),
             api(`/api/reqtrace.children?sessionId=${encodeURIComponent(sessionId)}`).catch(() => ({ children: [] })),
+            api(`/api/reqtrace.todos?sessionId=${encodeURIComponent(sessionId)}`).catch(() => ({ todos: [] })),
           ])
           const requirements = ledgerResult.ledger?.requirements ?? []
           const persistedReport = ledgerResult.ledger?.report ?? null
@@ -586,6 +600,7 @@ window.__ModuleLoader__.load({
           setDraft(requirements)
           setGlobalHistory((globalResult.ledgers ?? []).slice(0, 10))
           setChildren(childResult.children ?? [])
+          setTodos(todoResult.todos ?? [])
           if (persistedReport !== null) setReport(persistedReport)
           if (persistedReport !== null && !force) return
           const result = await api(`/api/reqtrace.audit?sessionId=${encodeURIComponent(sessionId)}${suffix}`)
@@ -628,6 +643,20 @@ window.__ModuleLoader__.load({
         }, 4000)
         return () => { live = false; clearInterval(timer) }
       }, [sessionId, run])
+
+      React.useEffect(() => {
+        if (sessionId === undefined || sessionId === '') return undefined
+        let live = true
+        const load = async () => {
+          try {
+            const result = await api(`/api/reqtrace.todos?sessionId=${encodeURIComponent(sessionId)}`)
+            if (live) setTodos(result.todos ?? [])
+          } catch { /* optional live task list */ }
+        }
+        void load()
+        const timer = setInterval(() => { void load() }, 2000)
+        return () => { live = false; clearInterval(timer) }
+      }, [sessionId])
 
       React.useEffect(() => {
         const box = childBoxRef.current
@@ -972,6 +1001,33 @@ window.__ModuleLoader__.load({
           ),
         ),
         error !== '' ? h('div', { style: { color: 'var(--dsw-alias-state-error-primary)', fontSize: '13px', lineHeight: '20px', padding: '10px 14px', borderRadius: '10px', background: 'color-mix(in srgb, var(--dsw-alias-state-error-primary) 8%, transparent)' } }, error) : null,
+        todos.length > 0 ? h('div', {
+          style: {
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px',
+            padding: '12px 14px',
+            borderRadius: '10px',
+            background: 'var(--dsw-alias-bg-layer-2)',
+            borderLeft: '2px solid var(--dsw-alias-state-business-primary)',
+          },
+        },
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' } },
+          h('strong', { style: { fontSize: '12px', lineHeight: '18px', color: 'var(--dsw-alias-label-secondary)', fontWeight: 600 } }, t('panel.todos')),
+          h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: 'var(--dsw-alias-state-success-primary)' } },
+            h('span', { style: { width: '5px', height: '5px', borderRadius: '50%', background: 'var(--dsw-alias-state-success-primary)' } }),
+            t('panel.todosLive'),
+          ),
+          h('span', { style: { marginLeft: 'auto', fontSize: '11px', color: 'var(--dsw-alias-label-tertiary)' } }, `${todos.filter((todo) => todo.status === 'completed').length}/${todos.length}`),
+        ),
+        ...todos.map((todo, index) => {
+          const mark = todoMark(todo.status)
+          return h('div', { key: `todo-${index}`, style: { display: 'flex', alignItems: 'baseline', gap: '8px', fontSize: '12px', lineHeight: '19px' } },
+            h('span', { style: { width: '14px', flex: 'none', color: mark.color, fontWeight: 700 } }, mark.text),
+            h('span', { style: { flex: 1, color: todo.status === 'completed' ? 'var(--dsw-alias-label-tertiary)' : 'var(--dsw-alias-label-primary)', textDecoration: todo.status === 'completed' ? 'line-through' : 'none' } }, todo.status === 'in_progress' && todo.activeForm !== '' ? todo.activeForm : todo.content),
+          )
+        }),
+        ) : null,
         true ? h('div', {
           ref: ledgerBoxRef,
           style: { 

@@ -9,7 +9,7 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
-import { auditSession, blocksText, extractRequirements, formatReport, parseReport, readEvents, shouldExtract } from './audit.js'
+import { auditSession, blocksText, extractRequirements, formatReport, parseReport, readEvents, readTodos, shouldExtract } from './audit.js'
 import { DEFAULT_CONFIG, readConfig, writeConfig } from './config.js'
 
 export const name = 'reqtrace'
@@ -478,6 +478,23 @@ export function apply(ctx) {
           })
         }
         return Response.json({ ok: true, children }, { headers: { 'cache-control': 'no-store' } })
+      },
+    })
+
+    sctx.connection.fetch.register({
+      path: '/api/reqtrace.todos',
+      methods: ['GET'],
+      requestBody: 'buffered',
+      fetch: async (request) => {
+        const sessionId = new URL(request.url).searchParams.get('sessionId') ?? ''
+        const session = sctx.sessions.get(sessionId)
+        if (session === undefined) return Response.json({ ok: false, code: 'session-not-found' }, { status: 404 })
+        try {
+          const latest = readTodos(readEvents(session))
+          return Response.json({ ok: true, todos: latest.todos, seq: latest.seq }, { headers: { 'cache-control': 'no-store' } })
+        } catch (error) {
+          return Response.json({ ok: false, code: 'todos-failed', message: error?.message ?? String(error) }, { status: 500 })
+        }
       },
     })
 
