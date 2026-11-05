@@ -1,5 +1,7 @@
 # dsh-reqtrace
 
+[![test](https://github.com/xingyanghaifu/dsh-reqtrace/actions/workflows/test.yml/badge.svg)](https://github.com/xingyanghaifu/dsh-reqtrace/actions/workflows/test.yml)
+
 Requirement-to-evidence audit for a DSH session.
 
 Use `/reqtrace` in a session, or click the small document icon next to the
