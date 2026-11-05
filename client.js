@@ -37,6 +37,16 @@ window.__ModuleLoader__.load({
       ], { duration: 500, easing: 'ease-out' })
     }
 
+    function dipTarget(target) {
+      if (typeof target.animate !== 'function') return
+      target.animate([
+        { transform: 'translateY(0)' },
+        { transform: 'translateY(3px)', offset: 0.3 },
+        { transform: 'translateY(-1px)', offset: 0.62 },
+        { transform: 'translateY(0)' },
+      ], { duration: 560, easing: 'ease-out' })
+    }
+
     const zh = {
       'panel.title': '需求对账',
       'panel.description': '逐条核对当前会话的需求、工具证据和最终答复。',
@@ -587,9 +597,21 @@ window.__ModuleLoader__.load({
             if (t < 1) {
               globalThis.requestAnimationFrame(tick)
             } else {
-              bird.remove()
-              flyingBirds.current = flyingBirds.current.filter((item) => item !== bird)
+              dipTarget(row)
               flash(row, true)
+              const end = bird.style.transform
+              if (typeof bird.animate === 'function') {
+                bird.animate([
+                  { opacity: 1, transform: end },
+                  { opacity: 0, transform: `${end} scale(.6)` },
+                ], { duration: 160, easing: 'ease-in', fill: 'forwards' }).onfinish = () => {
+                  bird.remove()
+                  flyingBirds.current = flyingBirds.current.filter((item) => item !== bird)
+                }
+              } else {
+                bird.remove()
+                flyingBirds.current = flyingBirds.current.filter((item) => item !== bird)
+              }
             }
           }
           globalThis.requestAnimationFrame(tick)
@@ -686,9 +708,21 @@ window.__ModuleLoader__.load({
           if (t < 1) {
             globalThis.requestAnimationFrame(tick)
           } else {
-            bird.remove()
-            flyingBirds.current = flyingBirds.current.filter((item) => item !== bird)
+            dipTarget(target)
             pulseTarget(target)
+            const end = bird.style.transform
+            if (typeof bird.animate === 'function') {
+              bird.animate([
+                { opacity: 1, transform: end },
+                { opacity: 0, transform: `${end} scale(.6)` },
+              ], { duration: 160, easing: 'ease-in', fill: 'forwards' }).onfinish = () => {
+                bird.remove()
+                flyingBirds.current = flyingBirds.current.filter((item) => item !== bird)
+              }
+            } else {
+              bird.remove()
+              flyingBirds.current = flyingBirds.current.filter((item) => item !== bird)
+            }
           }
         }
         globalThis.requestAnimationFrame(tick)
