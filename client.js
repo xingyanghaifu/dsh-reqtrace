@@ -415,6 +415,7 @@ window.__ModuleLoader__.load({
       const busyRef = React.useRef(false)
       const lastPendingTurn = React.useRef(null)
       const ledgerBoxRef = React.useRef(null)
+      const reportBoxRef = React.useRef(null)
       const childBoxRef = React.useRef(null)
       const childRowRefs = React.useRef(new Map())
       const previousChildren = React.useRef(new Set())
@@ -634,6 +635,63 @@ window.__ModuleLoader__.load({
         }
       }
 
+      const playDemoFlight = () => {
+        const source = ledgerBoxRef.current
+        const target = reportBoxRef.current
+        if (source === null || target === null) return
+        const reduced = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true
+        if (reduced) {
+          target.animate([
+            { boxShadow: '0 0 0 0 rgba(98,168,255,.7)' },
+            { boxShadow: '0 0 0 8px rgba(98,168,255,0)' },
+          ], { duration: 500, easing: 'ease-out' })
+          return
+        }
+        const from = source.getBoundingClientRect()
+        const to = target.getBoundingClientRect()
+        const ghost = document.createElement('div')
+        ghost.textContent = '任务交接 · 卡片飞行'
+        Object.assign(ghost.style, {
+          position: 'fixed', left: '0', top: '0', width: '190px', height: '44px',
+          display: 'grid', placeItems: 'center', zIndex: '9999', pointerEvents: 'none',
+          background: '#151a21', border: '1px solid #62a8ff', borderRadius: '8px',
+          color: '#e3e9f2', font: '12px "Segoe UI", "Microsoft YaHei", sans-serif',
+          boxShadow: '0 14px 42px rgba(0,0,0,.55), 0 0 14px rgba(98,168,255,.22)',
+        })
+        const startX = from.left + 12
+        const startY = from.top + 12
+        const endX = to.left + 20
+        const endY = to.top + 10
+        ghost.style.transform = `translate(${startX}px, ${startY}px)`
+        document.body.append(ghost)
+        ghostCards.current.push(ghost)
+        const dx = endX - startX
+        const dy = endY - startY
+        const c1 = { x: startX + dx * 0.28 - dy * 0.12, y: startY + dy * 0.28 + dx * 0.12 }
+        const c2 = { x: startX + dx * 0.72 - dy * 0.12, y: startY + dy * 0.72 + dx * 0.12 }
+        const startedAt = performance.now()
+        const tick = (now) => {
+          const t = Math.min(1, (now - startedAt) / 900)
+          const e = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2
+          const q = 1 - e
+          const x = q ** 3 * startX + 3 * q ** 2 * e * c1.x + 3 * q * e ** 2 * c2.x + e ** 3 * endX
+          const y = q ** 3 * startY + 3 * q ** 2 * e * c1.y + 3 * q * e ** 2 * c2.y + e ** 3 * endY
+          ghost.style.transform = `translate(${x}px, ${y}px) scale(${0.96 + 0.04 * e})`
+          ghost.style.opacity = String(1 - Math.max(0, (t - 0.82) / 0.18))
+          if (t < 1) {
+            globalThis.requestAnimationFrame(tick)
+          } else {
+            ghost.remove()
+            ghostCards.current = ghostCards.current.filter((item) => item !== ghost)
+            target.animate([
+              { boxShadow: '0 0 0 0 rgba(98,168,255,.7)' },
+              { boxShadow: '0 0 0 8px rgba(98,168,255,0)' },
+            ], { duration: 500, easing: 'ease-out' })
+          }
+        }
+        globalThis.requestAnimationFrame(tick)
+      }
+
       const resumeTask = async (index) => {
         setNotice('')
         setError('')
@@ -683,6 +741,13 @@ window.__ModuleLoader__.load({
             h('span', { style: { fontSize: '11px', lineHeight: '17px', color: 'var(--dsw-alias-label-tertiary)' } }, t('panel.description')),
           ),
           h('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', flex: 'none', alignSelf: 'center' } },
+            h('button', {
+              type: 'button',
+              title: '播放卡片飞行动画',
+              'aria-label': '播放卡片飞行动画',
+              style: { ...button, flex: 'none', height: '24px', minHeight: '24px', padding: '2px 8px', fontSize: '11px', lineHeight: '16px' },
+              onClick: playDemoFlight,
+            }, '▶ 动画'),
             report !== null ? h('button', {
               style: { ...button, flex: 'none', height: '24px', minHeight: '24px', padding: '2px 8px', fontSize: '11px', lineHeight: '16px' },
               onClick: () => void copyReport(),
@@ -829,9 +894,11 @@ window.__ModuleLoader__.load({
           )
         }) : null,
         ) : null,
-        report !== null
-          ? h(ReportView, { t, report, openSession })
-          : h('div', { style: { color: 'var(--dsw-alias-label-tertiary)', fontSize: '12px' } }, busy ? t('panel.running') : t('panel.empty')),
+        h('div', { ref: reportBoxRef, style: { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 } },
+          report !== null
+            ? h(ReportView, { t, report, openSession })
+            : h('div', { style: { color: 'var(--dsw-alias-label-tertiary)', fontSize: '12px' } }, busy ? t('panel.running') : t('panel.empty')),
+        ),
       )
     }
 
