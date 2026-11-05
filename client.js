@@ -76,7 +76,8 @@ window.__ModuleLoader__.load({
       'panel.ignore': '忽略',
       'panel.copy': '复制',
       'panel.copied': '已复制',
-      'panel.export': '导出',
+      'panel.export': '导出 JSON',
+      'panel.exportMd': '导出 Markdown',
       'panel.exported': '已导出',
       'panel.edit': '编辑',
       'panel.cancel': '取消',
@@ -142,7 +143,8 @@ window.__ModuleLoader__.load({
       'panel.ignore': 'Ignore',
       'panel.copy': 'Copy',
       'panel.copied': 'Copied',
-      'panel.export': 'Export',
+      'panel.export': 'Export JSON',
+      'panel.exportMd': 'Export Markdown',
       'panel.exported': 'Exported',
       'panel.edit': 'Edit',
       'panel.cancel': 'Cancel',
@@ -264,6 +266,19 @@ window.__ModuleLoader__.load({
         }
       }
       return ''
+    }
+
+    function requirementEvidence(report, text) {
+      if (report === null || report === undefined || typeof report === 'string') return null
+      const wanted = normalizeRequirement(text)
+      if (wanted === '') return null
+      for (const item of [...asList(report.done), ...asList(report.partial), ...asList(report.missing)]) {
+        const candidate = normalizeRequirement(item?.requirement)
+        if (candidate === wanted || (candidate.length > 4 && wanted.length > 4 && (candidate.includes(wanted) || wanted.includes(candidate)))) {
+          return { tools: asList(item?.tools), files: asList(item?.files) }
+        }
+      }
+      return null
     }
 
     function statusMark(status) {
@@ -806,6 +821,56 @@ window.__ModuleLoader__.load({
         }
       }
 
+      const exportMarkdown = () => {
+        const lines = ['# 需求对账报告', '']
+        lines.push(`- 会话：${sessionId}`)
+        lines.push(`- 生成：${formatTime(Date.now())}`)
+        if (typeof report === 'string') {
+          lines.push('', '```text', report, '```')
+        } else if (report !== null && report !== undefined) {
+          const done = asList(report.done)
+          const partial = asList(report.partial)
+          const missing = asList(report.missing)
+          const extra = asList(report.extra)
+          lines.push(`- 结论：${done.length} 完成 · ${partial.length} 部分 · ${missing.length} 缺失 · ${extra.length} 超出`)
+          if (typeof report.verdict === 'string' && report.verdict !== '') lines.push(`- 模型结论：${report.verdict}`)
+          const section = (title, items, detailOf) => {
+            if (items.length === 0) return
+            lines.push('', `## ${title}`, '')
+            for (const item of items) {
+              const entry = item !== null && typeof item === 'object' ? item : {}
+              const titleText = textOf(entry.requirement ?? entry.action ?? entry.text ?? item)
+              lines.push(`- **${titleText}**${detailOf(entry) ? ` — ${textOf(detailOf(entry))}` : ''}`)
+              if (entry.tools?.length) lines.push(`  - 工具：${entry.tools.map(textOf).join(', ')}`)
+              if (entry.files?.length) lines.push(`  - 文件：${entry.files.map(textOf).join(', ')}`)
+            }
+          }
+          section('需要处理', missing, (item) => item.why)
+          section('部分完成', partial, (item) => item.missing)
+          section('先看这几条', asList(report.next), (item) => item.why)
+          section('已完成', done, (item) => item.evidence)
+          section('超出范围', extra, () => '')
+          section('潜在冲突', asList(report.conflicts), (item) => item.text)
+        } else {
+          lines.push('', '还没有对账结果。')
+        }
+        if (children.length > 0) {
+          lines.push('', '## 子任务', '')
+          for (const child of children) {
+            lines.push(`- ${child.title ?? child.sessionId} · ${(child.requirements ?? []).length} 条${child.report?.verdict ? ` · ${textOf(child.report.verdict)}` : ''}`)
+          }
+        }
+        const blob = new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        const anchor = document.createElement('a')
+        anchor.href = url
+        anchor.download = 'reqtrace-report.md'
+        anchor.click()
+        URL.revokeObjectURL(url)
+        setExported(true)
+        setTimeout(() => setExported(false), 1500)
+      }
+
       const playDemoFlight = () => {
         const source = ledgerBoxRef.current
         const target = reportBoxRef.current
@@ -978,6 +1043,11 @@ window.__ModuleLoader__.load({
                 style: { ...button, border: 'none', background: 'transparent', textAlign: 'left', padding: '5px 8px', fontSize: '12px' },
                 onClick: () => { setShowActions(false); void exportReport() },
               }, exported ? t('panel.exported') : t('panel.export')),
+              h('button', {
+                type: 'button',
+                style: { ...button, border: 'none', background: 'transparent', textAlign: 'left', padding: '5px 8px', fontSize: '12px' },
+                onClick: () => { setShowActions(false); exportMarkdown() },
+              }, t('panel.exportMd')),
               ) : null,
             ) : null,
             h('button', {
@@ -1201,6 +1271,10 @@ window.__ModuleLoader__.load({
                   }
                 }
               }
+              const evidenceReport = sourceId === ''
+                ? report
+                : (children.find((child) => child.sessionId === sourceId)?.report ?? report)
+              const evidence = requirementEvidence(evidenceReport, item)
               const mark = statusMark(status)
               return h('div', { 
                 key: `ledger-${index}`, 
@@ -1246,6 +1320,10 @@ window.__ModuleLoader__.load({
                     onClick: () => openSession({ sessions: [sourceId] }) 
                   }, `· ${source}`)
                   : h('span', { style: { fontSize: '11px', color: 'var(--dsw-alias-label-tertiary)' } }, `· ${source}`)),
+                evidence !== null && (evidence.tools.length > 0 || evidence.files.length > 0)
+                  ? h('span', { style: { fontSize: '10px', color: 'var(--dsw-alias-label-quaternary)', whiteSpace: 'nowrap' } },
+                    `${evidence.tools.length} 工具 · ${evidence.files.length} 文件`)
+                  : null,
               )
             })),
         ) : null,
