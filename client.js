@@ -462,6 +462,7 @@ window.__ModuleLoader__.load({
       const childRowRefs = React.useRef(new Map())
       const previousChildren = React.useRef(new Set())
       const flyingBirds = React.useRef([])
+      const lastReportKey = React.useRef('')
 
       const run = React.useCallback(async (force = false) => {
         if (sessionId === undefined || sessionId === '') {
@@ -592,7 +593,7 @@ window.__ModuleLoader__.load({
             const q = 1 - e
             const x = q ** 3 * startX + 3 * q ** 2 * e * c1.x + 3 * q * e ** 2 * c2.x + e ** 3 * endX
             const y = q ** 3 * startY + 3 * q ** 2 * e * c1.y + 3 * q * e ** 2 * c2.y + e ** 3 * endY
-            const scale = 0.82 + 0.18 * Math.sin(Math.PI * t)
+            const scale = 0.58 + 0.42 * Math.min(1, t / 0.18) - 0.04 * Math.sin(Math.PI * t)
             bird.style.transform = `translate(${x}px, ${y}px) rotate(${(t - 0.5) * 12 * dir}deg) scaleX(${dir}) scale(${scale})`
             if (t < 1) {
               globalThis.requestAnimationFrame(tick)
@@ -703,7 +704,7 @@ window.__ModuleLoader__.load({
           const q = 1 - e
           const x = q ** 3 * startX + 3 * q ** 2 * e * c1.x + 3 * q * e ** 2 * c2.x + e ** 3 * endX
           const y = q ** 3 * startY + 3 * q ** 2 * e * c1.y + 3 * q * e ** 2 * c2.y + e ** 3 * endY
-          const scale = 0.82 + 0.18 * Math.sin(Math.PI * t)
+          const scale = 0.58 + 0.42 * Math.min(1, t / 0.18) - 0.04 * Math.sin(Math.PI * t)
           bird.style.transform = `translate(${x}px, ${y}px) rotate(${(t - 0.5) * 12 * dir}deg) scaleX(${dir}) scale(${scale})`
           if (t < 1) {
             globalThis.requestAnimationFrame(tick)
@@ -727,6 +728,18 @@ window.__ModuleLoader__.load({
         }
         globalThis.requestAnimationFrame(tick)
       }
+
+      React.useEffect(() => {
+        if (report === null || report === undefined) {
+          lastReportKey.current = ''
+          return undefined
+        }
+        const key = typeof report === 'string' ? report : JSON.stringify(report)
+        if (key === lastReportKey.current) return undefined
+        lastReportKey.current = key
+        const timer = setTimeout(() => playDemoFlight(), 180)
+        return () => clearTimeout(timer)
+      }, [report])
 
       const resumeTask = async (index) => {
         setNotice('')
@@ -779,11 +792,11 @@ window.__ModuleLoader__.load({
           h('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', flex: 'none', alignSelf: 'center' } },
             h('button', {
               type: 'button',
-              title: '播放喜鹊飞行动画',
-              'aria-label': '播放喜鹊飞行动画',
-              style: { ...button, flex: 'none', height: '24px', minHeight: '24px', padding: '2px 8px', fontSize: '11px', lineHeight: '16px' },
+              title: '预览喜鹊飞行',
+              'aria-label': '预览喜鹊飞行',
+              style: { ...button, flex: 'none', width: '24px', minWidth: '24px', height: '24px', minHeight: '24px', padding: 0, fontSize: '10px', lineHeight: '16px' },
               onClick: playDemoFlight,
-            }, '▶ 喜鹊'),
+            }, '▶'),
             report !== null ? h('button', {
               style: { ...button, flex: 'none', height: '24px', minHeight: '24px', padding: '2px 8px', fontSize: '11px', lineHeight: '16px' },
               onClick: () => void copyReport(),
