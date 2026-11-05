@@ -70,6 +70,13 @@ window.__ModuleLoader__.load({
       'panel.todos': 'Agent 任务清单',
       'panel.todosLive': '实时',
       'panel.todosEmpty': 'Agent 还没有创建任务清单。',
+      'panel.verify': '验证',
+      'panel.verifying': '验证中…',
+      'panel.verifyPass': '验证通过',
+      'panel.verifyFail': '验证失败',
+      'panel.verifyCommand': '验证命令',
+      'panel.verifyCancel': '取消',
+      'panel.verifyRun': '运行',
       'panel.noUsage': '模型未返回 token 用量',
       'panel.pendingTitle': '有新的任务待检查',
       'panel.ledger': '本次任务清单',
@@ -137,6 +144,13 @@ window.__ModuleLoader__.load({
       'panel.todos': 'Agent task list',
       'panel.todosLive': 'live',
       'panel.todosEmpty': 'The agent has not created a task list yet.',
+      'panel.verify': 'Verify',
+      'panel.verifying': 'Verifying…',
+      'panel.verifyPass': 'Verified',
+      'panel.verifyFail': 'Verification failed',
+      'panel.verifyCommand': 'Verification command',
+      'panel.verifyCancel': 'Cancel',
+      'panel.verifyRun': 'Run',
       'panel.noUsage': 'Model did not report token usage',
       'panel.pendingTitle': 'A new task is ready for audit',
       'panel.ledger': 'Task checklist',
@@ -586,6 +600,10 @@ window.__ModuleLoader__.load({
       const [draft, setDraft] = React.useState([])
       const [busy, setBusy] = React.useState(true)
       const [extracting, setExtracting] = React.useState(false)
+      const [verifications, setVerifications] = React.useState({})
+      const [verifyFor, setVerifyFor] = React.useState('')
+      const [verifyCommand, setVerifyCommand] = React.useState('npm test')
+      const [verifying, setVerifying] = React.useState(false)
       const [showActions, setShowActions] = React.useState(false)
       const [copied, setCopied] = React.useState(false)
       const [exported, setExported] = React.useState(false)
@@ -623,6 +641,7 @@ window.__ModuleLoader__.load({
           setLedgerAt(ledgerResult.ledger?.at ?? null)
           setExtractionUsage(ledgerResult.ledger?.extractionUsage ?? null)
           setDraft(requirements)
+          setVerifications(ledgerResult.ledger?.verifications ?? {})
           setGlobalHistory((globalResult.ledgers ?? []).slice(0, 10))
           setChildren(childResult.children ?? [])
           setTodos(todoResult.todos ?? [])
@@ -970,6 +989,31 @@ window.__ModuleLoader__.load({
           setError(`${t('panel.failed')}: ${failure?.message ?? failure}`)
         } finally {
           setExtracting(false)
+        }
+      }
+
+      const runVerification = async () => {
+        const requirement = verifyFor.trim()
+        const command = verifyCommand.trim()
+        if (requirement === '' || command === '' || verifying) return
+        setVerifying(true)
+        setError('')
+        try {
+          const payload = await api('/api/reqtrace.verify', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ sessionId, requirement, command }),
+          })
+          const result = payload.result ?? {}
+          setVerifications((current) => ({
+            ...current,
+            [requirement]: { command, ok: result.passed === true, output: result.output ?? '', at: result.at ?? Date.now() },
+          }))
+          if (result.passed !== true) setError(t('panel.verifyFail'))
+        } catch (failure) {
+          setError(`${t('panel.verifyFail')}: ${failure?.message ?? failure}`)
+        } finally {
+          setVerifying(false)
         }
       }
 
@@ -1324,8 +1368,39 @@ window.__ModuleLoader__.load({
                   ? h('span', { style: { fontSize: '10px', color: 'var(--dsw-alias-label-quaternary)', whiteSpace: 'nowrap' } },
                     `${evidence.tools.length} 工具 · ${evidence.files.length} 文件`)
                   : null,
+                verifications[item] !== undefined
+                  ? h('span', {
+                    title: textOf(verifications[item].output),
+                    style: {
+                      fontSize: '10px',
+                      color: verifications[item].ok ? 'var(--dsw-alias-state-success-primary)' : 'var(--dsw-alias-state-error-primary)',
+                      whiteSpace: 'nowrap',
+                    },
+                  }, verifications[item].ok ? `✓ ${t('panel.verifyPass')}` : `× ${t('panel.verifyFail')}`)
+                  : null,
+                h('button', {
+                  type: 'button',
+                  style: { ...button, flex: 'none', padding: '1px 6px', fontSize: '10px', lineHeight: '15px', background: 'transparent' },
+                  onClick: () => {
+                    setVerifyFor(item)
+                    setVerifyCommand(verifications[item]?.command ?? 'npm test')
+                  },
+                }, t('panel.verify')),
               )
             })),
+            verifyFor !== '' ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px', padding: '8px', borderRadius: '8px', background: 'var(--dsw-alias-bg-layer-3)' } },
+              h('span', { style: { fontSize: '11px', color: 'var(--dsw-alias-label-tertiary)' } }, `${t('panel.verifyCommand')} · ${verifyFor}`),
+              h('div', { style: { display: 'flex', gap: '6px', alignItems: 'center' } },
+                h('input', {
+                  value: verifyCommand,
+                  placeholder: 'npm test',
+                  style: { flex: 1, minWidth: 0, borderRadius: '6px', border: '.5px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)', padding: '4px 7px', fontSize: '11px', fontFamily: 'var(--ds-font-family-code)' },
+                  onChange: (event) => setVerifyCommand(event.target.value),
+                }),
+                h('button', { type: 'button', disabled: verifying, style: { ...button, padding: '2px 8px', fontSize: '11px' }, onClick: () => void runVerification() }, verifying ? t('panel.verifying') : t('panel.verifyRun')),
+                h('button', { type: 'button', style: { ...button, padding: '2px 8px', fontSize: '11px' }, onClick: () => setVerifyFor('') }, t('panel.verifyCancel')),
+              ),
+            ) : null,
         ) : null,
         children.length > 0 ? h('div', {
           ref: childBoxRef,

@@ -537,6 +537,57 @@ export function apply(ctx) {
     })
 
     sctx.connection.fetch.register({
+      path: '/api/reqtrace.verify',
+      methods: ['POST'],
+      requestBody: 'buffered',
+      fetch: async (request) => {
+        const body = await request.json().catch(() => ({}))
+        const sessionId = typeof body.sessionId === 'string' ? body.sessionId : ''
+        const requirement = typeof body.requirement === 'string' ? body.requirement.trim() : ''
+        const command = typeof body.command === 'string' ? body.command.trim() : ''
+        if (sessionId === '' || requirement === '' || command === '') {
+          return Response.json({ ok: false, code: 'invalid-request', message: 'sessionId, requirement and command are required' }, { status: 400 })
+        }
+        if (command.length > 500) {
+          return Response.json({ ok: false, code: 'command-too-long', message: 'verification command is too long' }, { status: 400 })
+        }
+        const session = sctx.sessions.get(sessionId)
+        if (session === undefined) return Response.json({ ok: false, code: 'session-not-found' }, { status: 404 })
+        let tools
+        try {
+          tools = ctx.get?.('tools')
+        } catch {
+          tools = undefined
+        }
+        if (typeof tools?.execute !== 'function') {
+          return Response.json({ ok: false, code: 'tools-unavailable', message: 'DSH tools service is not available' }, { status: 503 })
+        }
+        try {
+          const result = await tools.execute({
+            callId: randomUUID(),
+            name: 'ops_bash',
+            arguments: { command, description: 'reqtrace requirement verification' },
+            signal: request.signal,
+          })
+          const content = result?.content ?? result?.message?.content ?? result?.result?.content
+          const output = blocksText(content).slice(0, 8000) || (typeof result?.output === 'string' ? result.output.slice(0, 8000) : '')
+          const failed = result?.isError === true || result?.error !== undefined || result?.ok === false
+          const ledger = taskLedgers.get(sessionId)
+          if (ledger !== undefined) {
+            ledger.verifications = {
+              ...(ledger.verifications ?? {}),
+              [requirement]: { command, ok: !failed, output, at: Date.now() },
+            }
+            await persistLedgers()
+          }
+          return Response.json({ ok: true, result: { passed: !failed, command, output, at: Date.now() } }, { headers: { 'cache-control': 'no-store' } })
+        } catch (error) {
+          return Response.json({ ok: false, code: 'verify-failed', message: error?.message ?? String(error) }, { status: 500 })
+        }
+      },
+    })
+
+    sctx.connection.fetch.register({
       path: '/api/reqtrace.audit',
       methods: ['GET'],
       requestBody: 'buffered',
